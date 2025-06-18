@@ -1,0 +1,239 @@
+<link rel="stylesheet" href="css/custom.css">
+
+<?php
+include("config.php"); 
+session_start();
+$pwposted = isset($_POST['password']) ? $_POST['password'] : ''; // Corrige Undefined index
+$mark = isset($_POST['mark']) ? $_POST['mark'] : 0; // Corrige Undefined index
+//
+// INICIO DO CODIGO HTML --*** CUIDADO AO EDITAR ***--.
+?>
+<html lang="en">
+
+  <head>
+    <title><?PHP echo $pagetitle; ?></title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link href="https://fonts.googleapis.com/css?family=DM+Sans:300,400,700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="fonts/icomoon/style.css">
+
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-datepicker.css">
+    <link rel="stylesheet" href="css/jquery.fancybox.min.css">
+    <link rel="stylesheet" href="css/owl.carousel.min.css">
+    <link rel="stylesheet" href="css/owl.theme.default.min.css">
+    <link rel="stylesheet" href="fonts/flaticon/font/flaticon.css">
+    <link rel="stylesheet" href="css/aos.css">
+
+    <!-- MAIN CSS -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+      .copy-btn {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .copy-btn:active {
+        background-color: #0056b3;
+      }
+      .copied-notification {
+        color: green;
+        font-weight: bold;
+      }
+    </style>
+
+  </head>
+
+  <body data-spy="scroll" data-target=".site-navbar-target" data-offset="300">
+
+    <div class="site-wrap" id="home-section">
+
+      <div class="site-mobile-menu site-navbar-target">
+        <div class="site-mobile-menu-header">
+          <div class="site-mobile-menu-close mt-3">
+            <span class="icon-close2 js-menu-toggle"></span>
+          </div>
+        </div>
+        <div class="site-mobile-menu-body"></div>
+      </div>
+
+      <header class="site-navbar site-navbar-target" role="banner">
+
+        <div class="container">
+          <div class="row align-items-center position-relative">
+
+            <div class="col-lg-12">
+              <div class="site-logo">
+                <a href="index.php"><?PHP echo $pagetitle; ?></a>
+              </div>
+            </div> 
+            <div class="col-9 text-right">
+            &nbsp;
+            </div>
+            
+          </div>
+        </div>
+
+      </header>   
+    <div class="site-section bg-dark">
+      <div class="container">
+      <h1 class="mb-3">&nbsp;</h1>
+<?php
+// VERIFICA SESSÃO INICIADA, SE A SENHA FOR VALIDA, CARREGA DADOS, SENÃO MOSTRA O FORMULÁRIO OU ERRO
+if (isset($_SESSION['pagepwd']) && $_SESSION['pagepwd'] == $pagepw) { // Corrige Undefined index
+// Conecta ao servidor de e-mails
+$imapResource = imap_open($mailbox, $username, $password);
+
+if($imapResource === false){
+    die('Erro de conexão IMAP: ' . imap_last_error());
+}
+
+// Busca e-mails baseados no remetente e data
+$search = 'FROM "noreply@tm.openai.com" SINCE "' . date("j F Y", strtotime("-1 day")) . '"';
+$selectedemails = imap_search($imapResource, $search);
+$sortemails = imap_sort($imapResource, SORTARRIVAL, 1);
+$emails = order_search($selectedemails, $sortemails);
+
+?> <div class="row align-items-stretch"> <?php
+if(!empty($emails)){
+    // Loop pelos e-mails encontrados
+    $printedmail = 0;
+    foreach($emails as $email){
+        // Busca os detalhes do e-mail
+        $overview = imap_fetch_overview($imapResource, $email);
+        $overview = $overview[0];
+        $message = imap_fetchbody($imapResource, $email, 1, FT_PEEK);
+
+        // Captura o código de verificação e o e-mail associado
+        $patternCode = '/(?:Your ChatGPT code is|=)\s*(\d{6})/';
+
+        $code = 'Código não encontrado';
+        $emailConta = 'E-mail não encontrado';
+
+        // Busca o código no corpo do e-mail
+        if (preg_match($patternCode, $message, $matchesCode)) {
+            $code = $matchesCode[1];
+        }
+
+        // Busca o e-mail da conta ignorando "aanniitaas@gmail.com"
+        $header = imap_fetchheader($imapResource, $email);
+        if (preg_match('/^X-X-Forwarded-For:\s*(.+)$/mi', $header, $matchesXForwarded)) {
+            $forwardedEmails = explode(',', $matchesXForwarded[1]);
+            foreach ($forwardedEmails as $forwardedEmail) {
+                $trimmedEmail = trim($forwardedEmail);
+                if (strpos($trimmedEmail, '@') !== false && $trimmedEmail !== 'aanniitaas@gmail.com') {
+                    $emailConta = $trimmedEmail;
+                    break;
+                }
+            }
+        } elseif (preg_match('/^Delivered-To:\s*(.+)$/mi', $header, $matchesDeliveredTo)) {
+            $emailConta = trim($matchesDeliveredTo[1]);
+        } elseif (preg_match('/^To:\s*(.+)$/mi', $header, $matchesTo)) {
+            $emailConta = trim($matchesTo[1]);
+        } elseif (preg_match('/^From:\s*(.+)$/mi', $header, $matchesFrom)) {
+            $emailConta = trim($matchesFrom[1]);
+        }
+
+        // Remove "aanniitaas@gmail.com" do resultado final
+        if (strpos($emailConta, 'aanniitaas@gmail.com') !== false) {
+            $emailConta = str_replace(' aanniitaas@gmail.com', '', $emailConta);
+        }
+
+        // Exibe os dados no painel
+        ?>
+        <div class="col-lg-4 col-md-6 mb-5">
+            <div class="post-entry-1 h-100 person-1">    
+                <img src="images/rdweb2.png" alt="Image" class="img-fluid">
+                <div class="post-entry-1-contents">
+                    <span class="meta">Usuário ChatGpt:</span>
+                    <h2><?php echo htmlentities($emailConta); ?></h2>
+                    <p>Código: <strong id="code-<?php echo $printedmail; ?>"><?php echo htmlentities($code); ?></strong></p>
+                    <button class="copy-btn" onclick="copyCode('<?php echo $printedmail; ?>')">Copiar Código</button>
+                    <p id="copied-notification-<?php echo $printedmail; ?>" class="copied-notification" style="display:none;">Copiado! O código <?php echo htmlentities($code); ?> foi copiado.</p>
+                    <p><a href="https://www.contasvip.com.br/" target="_blank" class="place">
+                        <img src="images/dan2.png" alt="Image placeholder">
+                    </a></p>
+                </div>
+            </div>
+        </div>
+        <?php
+        if (++$printedmail == $quota2fa) break;
+    }
+    if (++$_SESSION['updtimes'] == $maxupdates) {
+        $_SESSION['updtimes'] = 0;
+    } else {
+        ?> <script type="text/JavaScript"> setTimeout("window.location = 'index.php';",<?PHP echo $updateinterval; ?>)</script><?PHP
+    }
+} else {
+    echo 'Sem códigos para exibir. <br><br>';
+}
+} else {
+    // FORMULÁRIO DE LOGIN
+    if ($mark == 1)
+    {
+        if ($pwposted == $pagepw) {
+            $_SESSION['pagepwd'] = $pagepw;
+            $_SESSION['updtimes'] = 0;
+            ?> <script type="text/JavaScript"> setTimeout("window.location = 'index.php';",10)</script><?PHP
+        } else {
+           ?> <script type="text/JavaScript"> setTimeout("window.location = 'index.php';",1200)</script><p>&nbsp;</p><p align="center"><font color="red"> <?PHP
+           echo 'Senha inválida. Redirecionando para novo login... </font></p> <br><br>'; 
+           $pwposted ="";
+        }
+    } else { 
+      ?>
+          <p>&nbsp;</p>
+           <div class="row justify-content-center text-center">
+        	    <div class="col-lg-6 col-md-4 text-center mb-6">
+                <form method="post" action="index.php" class="d-flex" class="subscribe">
+                    <input name="password" type="password" class="form-control mr-3" placeholder="Digite a Senha">                
+                    <input name="mark" value="1" type="hidden">
+                    <input type="submit" value="Acessar" class="btn btn-primary">
+                </form>
+		        </div>
+        </div>
+<?PHP
+    }
+}
+?>
+</div>
+    </div>
+</div>
+
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <script src="js/jquery-migrate-3.0.0.js"></script>
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/owl.carousel.min.js"></script>
+    <script src="js/jquery.sticky.js"></script>
+    <script src="js/jquery.waypoints.min.js"></script>
+    <script src="js/jquery.animateNumber.min.js"></script>
+    <script src="js/jquery.fancybox.min.js"></script>
+    <script src="js/jquery.stellar.min.js"></script>
+    <script src="js/jquery.easing.1.3.js"></script>
+    <script src="js/bootstrap-datepicker.min.js"></script>
+    <script src="js/aos.js"></script>
+
+    <script src="js/main.js"></script>
+    <script>
+      function copyCode(id) {
+        const codeElement = document.getElementById(`code-${id}`);
+        const code = codeElement.textContent;
+        navigator.clipboard.writeText(code).then(() => {
+          const notification = document.getElementById(`copied-notification-${id}`);
+          notification.style.display = 'block';
+          setTimeout(() => {
+            notification.style.display = 'none';
+          }, 2000);
+        });
+      }
+    </script>
+
+  </body>
+</html>

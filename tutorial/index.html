@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutorial para pegar o código - Daniel Contas VIP</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * {margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif;}
+        body {background: linear-gradient(-45deg, #000000, #1a1a1a, #000000, #AA8C3C); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px; overflow-x: hidden;}
+        .main-title {color: #fff; font-size: 2.5em; text-align: center; margin: 30px 0; text-shadow: 0 0 15px rgba(170, 140, 60, 0.5); position: relative;}
+        .main-title::after {content: "Daniel Contas VIP"; display: block; font-size: 0.6em; color: #FFD700; margin-top: 10px; letter-spacing: 2px;}
+        .video-container {position: relative; width: 100%; max-width: 800px; margin: 20px auto; border-radius: 15px; overflow: hidden; box-shadow: 0 0 30px rgba(170, 140, 60, 0.3); background: #000; border: 2px solid #AA8C3C;}
+        video {width: 100%; height: 100%; object-fit: contain;} /* Alterado para contain */
+        .controls {position: absolute; bottom: 10px; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px);}
+        .controls button {background: none; border: none; padding: 10px; transition: all 0.3s ease;}
+        .controls .play-pause, .controls .mute, .controls .fullscreen {cursor: pointer; color: #FFD700; font-size: 1.2em;}
+        .controls button:hover {transform: scale(1.1); text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);}
+        .controls input[type="range"] {width: 100%; margin: 0 10px; cursor: pointer; height: 5px; border-radius: 5px; background: #333;}
+        .controls input[type="range"]::-webkit-slider-thumb {-webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: #FFD700;}
+        @keyframes gradientBG {0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;}}
+        .website-link {font-size: 0.9em; color: #FFD700; text-decoration: none; font-weight: normal; display: block; text-align: center; margin-top: 30px; transition: color 0.3s ease;}
+        .website-link:hover {color: #AA8C3C;}
+        @media (max-width: 768px) {.main-title {font-size: 1.8em; margin: 20px 0;}.video-container {margin: 10px auto;}}
+    </style>
+</head>
+<body>
+    <h1 class="main-title">Tutorial para pegar o código</h1>
+    <div class="video-container">
+        <video id="videoPlayer" preload="metadata" controls>
+            <source src="tutorial.webm" type="video/webm">Seu navegador não suporta a tag de vídeo.
+        </video>
+        <div class="controls">
+            <button class="play-pause" id="playPauseBtn"><i class="fas fa-play"></i></button>
+            <input type="range" id="videoTrack" value="0" max="100" step="1">
+            <button class="mute" id="muteBtn"><i class="fas fa-volume-up"></i></button>
+            <button class="fullscreen" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+        </div>
+    </div>
+
+    <a href="https://www.contasvip.com.br" class="website-link">www.contasvip.com.br</a>
+
+    <script>
+        const videoPlayer = document.getElementById('videoPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const videoTrack = document.getElementById('videoTrack');
+
+        playPauseBtn.addEventListener('click', () => {
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            } else {
+                videoPlayer.pause();
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+            }
+        });
+
+        muteBtn.addEventListener('click', () => {
+            videoPlayer.muted = !videoPlayer.muted;
+            muteBtn.innerHTML = videoPlayer.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (videoPlayer.requestFullscreen) {
+                videoPlayer.requestFullscreen();
+            } else if (videoPlayer.mozRequestFullScreen) { // Firefox
+                videoPlayer.mozRequestFullScreen();
+            } else if (videoPlayer.webkitRequestFullscreen) { // Chrome, Safari and Opera
+                videoPlayer.webkitRequestFullscreen();
+            } else if (videoPlayer.msRequestFullscreen) { // IE/Edge
+                videoPlayer.msRequestFullscreen();
+            }
+
+            // Garantir que o vídeo ocupe toda a tela sem zoom
+            videoPlayer.style.objectFit = 'contain';
+        });
+
+        videoPlayer.addEventListener('timeupdate', () => {
+            const value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+            videoTrack.value = value;
+        });
+
+        videoTrack.addEventListener('input', () => {
+            const value = videoTrack.value * videoPlayer.duration / 100;
+            videoPlayer.currentTime = value;
+        });
+        
+        // Desativa autoplay no mobile
+        videoPlayer.addEventListener('canplay', () => {
+            if (window.innerWidth <= 768) {
+                videoPlayer.controls = true;  // Só mostrar controles no mobile
+            }
+        });
+    </script>
+</body>
+</html>
