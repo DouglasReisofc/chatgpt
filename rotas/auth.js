@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -16,6 +17,15 @@ const transporter = nodemailer.createTransport({
 // Generate a random 6-digit code
 function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function getIPInfo(ip) {
+  try {
+    const { data } = await axios.get(`https://ipwho.is/${ip}`);
+    return data.country || 'Desconhecido';
+  } catch (err) {
+    return 'Desconhecido';
+  }
 }
 
 // Check blocked IP middleware
@@ -107,14 +117,18 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
 
     console.log('✅ Email sent successfully:', emailResult.messageId);
 
-    // Log access attempt
+    // Log access attempt with IP details
+    const ip = req.ip;
+    const referer = req.get('referer') || '';
+    const country = await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_code_sent',
       timestamp: new Date(),
-      ip: req.ip
+      ip,
+      country,
+      referer
     });
-
     console.log('📝 Access log recorded');
     res.json({ message: 'Verification code sent' });
   } catch (error) {
@@ -148,11 +162,16 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (!verificationRecord) {
       console.log('❌ Invalid verification code');
+      const ip = req.ip;
+      const referer = req.get('referer') || '';
+      const country = await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'verification_failed',
         timestamp: new Date(),
-        ip: req.ip
+        ip,
+        country,
+        referer
       });
       return res.status(401).json({ error: 'Invalid code' });
     }
@@ -176,13 +195,18 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       { upsert: true }
     );
 
-    // Log successful verification
+    // Log successful verification with IP details
     console.log('📝 Recording successful verification...');
+    const ip = req.ip;
+    const referer = req.get('referer') || '';
+    const country = await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_success',
       timestamp: new Date(),
-      ip: req.ip
+      ip,
+      country,
+      referer
     });
 
     // Check if user has reached session limit
@@ -191,11 +215,16 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (activeSessions >= SESSION_LIMIT) {
       console.log('❌ Session limit reached for user:', email);
+      const ip = req.ip;
+      const referer = req.get('referer') || '';
+      const country = await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'session_limit_reached',
         timestamp: new Date(),
-        ip: req.ip
+        ip,
+        country,
+        referer
       });
       return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
     }

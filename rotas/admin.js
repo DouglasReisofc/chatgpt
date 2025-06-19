@@ -153,6 +153,30 @@ router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
     }
 });
 
+// Access logs page
+router.get('/logs', requireAdmin, disableLayout, async (req, res) => {
+    const db = req.db;
+    try {
+        const logs = await db.collection('access_logs')
+            .find()
+            .sort({ timestamp: -1 })
+            .limit(100)
+            .toArray();
+
+        const blockedIps = await db.collection('blocked_ips').find().toArray();
+
+        res.render('admin/logs', {
+            title: 'Logs de Acesso',
+            logs,
+            blockedIps,
+            layout: false
+        });
+    } catch (error) {
+        console.error('Logs page error:', error);
+        res.status(500).send('Error loading logs');
+    }
+});
+
 // Settings page
 router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
     const db = req.db;

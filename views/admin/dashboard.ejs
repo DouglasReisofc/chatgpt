@@ -57,6 +57,9 @@
                         <a href="/admin/users" class="nav-link">
                             <i class="fas fa-users me-2"></i>Usuários
                         </a>
+                        <a href="/admin/logs" class="nav-link">
+                            <i class="fas fa-file-alt me-2"></i>Logs
+                        </a>
                         <a href="/admin/settings" class="nav-link">
                             <i class="fas fa-cog me-2"></i>Configurações
                         </a>
@@ -141,6 +144,8 @@
                                     <th>Ação</th>
                                     <th>Data/Hora</th>
                                     <th>IP</th>
+                                    <th>País</th>
+                                    <th>Referer</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -158,6 +163,8 @@
                                     </td>
                                     <td><%= new Date(log.timestamp).toLocaleString() %></td>
                                     <td><%= log.ip %></td>
+                                    <td><%= log.country || 'Desconhecido' %></td>
+                                    <td><%= log.referer || '' %></td>
                                 </tr>
                                 <% }); %>
                             </tbody>
