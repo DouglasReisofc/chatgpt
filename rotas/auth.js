@@ -280,27 +280,6 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         maxSessions: 3,
         sessionDuration: 5
       };
-    let loginCredits =
-      user && typeof user.loginCredits === 'number' ? user.loginCredits : null;
-
-    if (loginCredits !== null) {
-      if (loginCredits <= 0) {
-        console.log('❌ Login credit limit reached for user:', email);
-        await db.collection('access_logs').insertOne({
-          email,
-          action: 'login_limit_reached',
-          timestamp: new Date(),
-          ip,
-          country: ipInfo.country || 'Desconhecido',
-          referer,
-          ipInfo
-        });
-        return res
-          .status(403)
-          .json({ error: 'Você não tem mais limite disponível.' });
-      }
-      loginCredits = Math.max(0, loginCredits - 2);
-    }
 
     const currentMax =
       user && typeof user.maxSessions === 'number'
@@ -315,8 +294,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
           email,
           lastLogin: new Date(),
           verified: true,
-          maxSessions: newMaxSessions,
-          ...(loginCredits !== null ? { loginCredits } : {})
+          maxSessions: newMaxSessions
         }
       },
       { upsert: true }
