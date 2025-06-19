@@ -93,8 +93,17 @@
                                     <td><%= log.action %></td>
                                     <td><%= new Date(log.timestamp).toLocaleString() %></td>
                                     <td><%= log.ip %></td>
-                                    <td><%= log.country || 'Desconhecido' %></td>
-                                    <td><%= log.referer || '' %></td>
+                                    <td>
+                                        <%= log.ipInfo && log.ipInfo.flag ? log.ipInfo.flag.emoji + ' ' : '' %>
+                                        <%= log.country || 'Desconhecido' %>
+                                    </td>
+                                    <td>
+                                        <% if (log.referer) { %>
+                                            <a href="<%= log.referer %>" target="_blank">
+                                                <%= log.referer.length > 40 ? log.referer.slice(0,37) + '...' : log.referer %>
+                                            </a>
+                                        <% } %>
+                                    </td>
                                     <td>
                                         <% const isBlocked = blockedIps.find(b => b.address === log.ip); %>
                                         <button class="btn btn-sm btn-info ip-info" data-ip="<%= log.ip %>">Detalhes</button>

@@ -85,6 +85,15 @@ function resolveClientIP(req) {
   return getClientIP(req);
 }
 
+function resolveReferer(req) {
+  return (
+    req.body?.referer ||
+    req.get('referer') ||
+    req.headers['origin'] ||
+    ''
+  );
+}
+
 async function getIPInfo(ip) {
   try {
     if (!isValidIP(ip) || isPrivateIP(ip)) {
@@ -205,6 +214,12 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
   try {
     const db = req.db;
+    const ip = resolveClientIP(req);
+    const referer = resolveReferer(req);
+    const ipInfo =
+      req.body.ipInfo && req.body.ipInfo.ip === ip
+        ? req.body.ipInfo
+        : await getIPInfo(ip);
     console.log('💾 Checking database connection...');
 
     if (!db) {
@@ -222,7 +237,11 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       await db.collection('access_logs').insertOne({
         email,
         action: 'verification_failed',
-        timestamp: new Date()
+        timestamp: new Date(),
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
       });
       return res.status(401).json({ error: 'Invalid code' });
     }
@@ -248,11 +267,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     // Log successful verification with IP details
     console.log('📝 Recording successful verification...');
-    const ip = resolveClientIP(req);
-    const referer = req.get('referer') || '';
-    const ipInfo = req.body.ipInfo && req.body.ipInfo.ip === ip
-      ? req.body.ipInfo
-      : await getIPInfo(ip);
+    // Reuse ip, ipInfo and referer collected above
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_success',
@@ -272,7 +287,11 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       await db.collection('access_logs').insertOne({
         email,
         action: 'session_limit_reached',
-        timestamp: new Date()
+        timestamp: new Date(),
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
       });
       return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
     }
@@ -385,12 +404,6 @@ router.get('/logout', async (req, res) => {
         sessionId
       });
 
-      // Log logout without IP
-      await req.db.collection('access_logs').insertOne({
-        email,
-        action: 'logout',
-        timestamp: new Date()
-      });
     } catch (error) {
       console.error('❌ Error during logout:', error);
     }

@@ -42,6 +42,7 @@
 <script>
     let currentEmail = '';
     let clientIPInfo = null;
+    const clientReferrer = document.referrer || '';
 
     async function captureIPInfo() {
         try {
@@ -72,7 +73,8 @@
                 body: JSON.stringify({
                     email,
                     ip: clientIPInfo ? clientIPInfo.ip : null,
-                    ipInfo: clientIPInfo
+                    ipInfo: clientIPInfo,
+                    referer: clientReferrer
                 })
             });
 
@@ -109,7 +111,8 @@
                     email: currentEmail,
                     code: code,
                     ip: clientIPInfo ? clientIPInfo.ip : null,
-                    ipInfo: clientIPInfo
+                    ipInfo: clientIPInfo,
+                    referer: clientReferrer
                 })
             });
 
