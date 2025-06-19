@@ -1,70 +1,199 @@
-/* Base styles */
+/* Global Styles */
 body {
-  font-family: 'DM Sans', sans-serif;
-  background-color: #000;
-  color: #fff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Button styles */
-.btn-primary {
-  background: linear-gradient(to right, #3b82f6, #8b5cf6);
-  transition: all 0.3s ease;
+/* Header Section */
+.header-section {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-/* Card styles */
+/* Code Cards */
 .code-card {
-  background: white;
-  transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    margin-bottom: 30px;
+    overflow: hidden;
 }
 
 .code-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-/* Modal styles */
-.modal-backdrop {
-  background-color: rgba(0, 0, 0, 0.75);
-  display: none;
+.code-card-header {
+    background: linear-gradient(135deg, #00d4aa, #00a085);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    position: relative;
 }
 
-/* Animations */
-.fade-in {
-  animation: fadeIn 0.5s ease forwards;
+.chatgpt-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+    font-size: 24px;
 }
 
-.fade-out {
-  animation: fadeOut 0.3s ease forwards;
+.code-card-body {
+    padding: 25px;
+    text-align: center;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.user-email {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+    word-break: break-all;
 }
 
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
+.code-display {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border: 2px dashed #00d4aa;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 20px 0;
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    letter-spacing: 2px;
+    font-family: 'Courier New', monospace;
 }
 
-/* Card shadow */
-.card-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+.copy-btn {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border: none;
+    border-radius: 25px;
+    padding: 12px 30px;
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    width: 100%;
+}
+
+.copy-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
+}
+
+.copied-notification {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    margin-top: 15px;
+    font-weight: 600;
+    animation: fadeInOut 3s ease-in-out;
+}
+
+.no-codes-message {
+    text-align: center;
+    padding: 60px 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.update-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 15px 25px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.update-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+}
+
+/* Stats Cards */
+.stats-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-bottom: 20px;
+}
+
+.stats-card i {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+
+.stats-card h3 {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+.stats-card p {
+    font-size: 1rem;
+    opacity: 0.8;
+    margin: 0;
+}
+
+/* Login Form */
+.login-form {
+    max-width: 400px;
+    margin: 100px auto;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.login-form h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #333;
+}
+
+.form-control {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    padding: 12px 20px;
+}
+
+.form-control:focus {
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    border-color: #007bff;
 }

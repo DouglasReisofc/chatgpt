@@ -36,59 +36,62 @@ app.use(session({
   secret: 'your-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
     secure: process.env.NODE_ENV === 'production',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
-
-// Import routes
-const authRoutes = require('./rotas/auth');
-const codesRoutes = require('./rotas/codes');
-
-// Use routes
-app.use('/', authRoutes);
-app.use('/codes', codesRoutes);
 
 // MongoDB connection
 let db;
 const mongoUrl = 'mongodb://localhost:27017';
 const dbName = 'chatgpt_codes';
 
-// Connect to MongoDB
+// Import database initialization
+const { initializeDatabase } = require('./init-database');
+
+// Connect to MongoDB with retry logic
 async function connectToMongoDB() {
-  try {
-    const client = new MongoClient(mongoUrl, { 
-      useUnifiedTopology: true,
-      useNewUrlParser: true 
-    });
-    await client.connect();
-    db = client.db(dbName);
-    console.log('✅ Connected to MongoDB');
-    
-    // Ensure collections exist
-    const collections = await db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
-    
-    if (!collectionNames.includes('verification_codes')) {
-      await db.createCollection('verification_codes');
-      await db.collection('verification_codes').createIndex({ email: 1 });
-      await db.collection('verification_codes').createIndex({ createdAt: 1 }, { expireAfterSeconds: 600 });
+  const maxRetries = 5;
+  let retries = 0;
+
+  while (retries < maxRetries) {
+    try {
+      console.log(`🔗 Attempting to connect to MongoDB (attempt ${retries + 1}/${maxRetries})...`);
+
+      const client = new MongoClient(mongoUrl, {
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000
+      });
+
+      await client.connect();
+      db = client.db(dbName);
+      console.log('✅ Connected to MongoDB successfully');
+
+      // Initialize database collections and indexes
+      await initializeDatabase();
+
+      return;
+
+    } catch (error) {
+      retries++;
+      console.error(`❌ MongoDB connection attempt ${retries} failed:`, error.message);
+
+      if (retries >= maxRetries) {
+        console.error('❌ Failed to connect to MongoDB after multiple attempts');
+        console.log('\n📋 Troubleshooting steps:');
+        console.log('1. Make sure MongoDB is installed and added to your PATH');
+        console.log('2. Run: start.bat (to start MongoDB and the application)');
+        console.log('3. Or manually start MongoDB: mongod --config mongod.conf');
+        console.log('4. Download MongoDB from: https://www.mongodb.com/try/download/community');
+        process.exit(1);
+      }
+
+      console.log(`⏳ Retrying in 3 seconds...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
-    
-    if (!collectionNames.includes('users')) {
-      await db.createCollection('users');
-      await db.collection('users').createIndex({ email: 1 }, { unique: true });
-    }
-    
-    if (!collectionNames.includes('access_logs')) {
-      await db.createCollection('access_logs');
-    }
-    
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    console.log('Please make sure MongoDB is running on localhost:27017');
-    process.exit(1);
   }
 }
 
@@ -97,6 +100,21 @@ app.use((req, res, next) => {
   req.db = db;
   next();
 });
+
+// Import routes
+const authRoutes = require('./rotas/auth');
+const adminRoutes = require('./rotas/admin');
+
+// Use routes
+app.use('/', authRoutes);
+
+// Disable express-ejs-layouts for admin routes
+app.use('/admin/*', (req, res, next) => {
+  app.set('layout', '');
+  next();
+});
+
+app.use('/admin', adminRoutes);
 
 // Initialize MongoDB connection and start server
 connectToMongoDB().then(() => {

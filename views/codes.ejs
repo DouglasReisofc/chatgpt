@@ -1,103 +1,194 @@
-<div class="space-y-8">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-white mb-2">Códigos ChatGPT</h1>
-            <p class="text-gray-400">Seus códigos de acesso estão listados abaixo</p>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChatGPT Codes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+    <link href="/css/style.css" rel="stylesheet" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+        .card-custom {
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        .card-custom:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.15);
+        }
+        .chatgpt-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 15px;
+        }
+        .chatgpt-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: #10a37f;
+        }
+        .user-email {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            word-break: break-word;
+            color: #333;
+        }
+        .code-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #555;
+            font-family: 'Courier New', monospace;
+        }
+        .btn-copy {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .btn-copy:hover {
+            background-color: #0056b3;
+        }
+        .copied-notification {
+            margin-top: 10px;
+            color: #28a745;
+            font-weight: 600;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+    <!-- Header Section -->
+    <div class="header-section">
+        <div class="d-flex justify-content-between align-items-center text-white">
+            <div>
+                <h1 class="mb-0">
+                    <i class="fas fa-robot me-3"></i>ChatGPT Codes
+                </h1>
+                <p class="mb-0 opacity-75">Sistema de Códigos de Verificação</p>
+            </div>
+            <div>
+                <a href="/logout" class="btn btn-outline-light">
+                    <i class="fas fa-sign-out-alt me-2"></i>Sair
+                </a>
+            </div>
         </div>
-        <button 
-            onclick="location.reload()"
-            class="btn-primary text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
-        >
-            <i class="fas fa-sync-alt mr-2"></i>
-            Atualizar Página
-        </button>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 fade-in">
-        <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-xl p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-400 text-sm mb-1">Total de Usuários</p>
-                    <h3 class="text-2xl font-bold text-white"><%= stats.totalUsers %></h3>
-                </div>
-                <div class="w-12 h-12 bg-blue-500 bg-opacity-20 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-users text-blue-400 text-xl"></i>
-                </div>
+    <!-- Update Button -->
+    <button class="update-btn" onclick="updatePage()">
+        <i class="fas fa-sync-alt me-2"></i>Atualizar
+    </button>
+
+    <!-- Stats Section -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card">
+                <i class="fas fa-users fa-2x mb-3"></i>
+                <h3><%= stats.totalUsers %></h3>
+                <p class="mb-0">Total de Usuários</p>
             </div>
         </div>
-        
-        <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-xl p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-400 text-sm mb-1">Acessos Hoje</p>
-                    <h3 class="text-2xl font-bold text-white"><%= stats.todayLogins %></h3>
-                </div>
-                <div class="w-12 h-12 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-chart-line text-green-400 text-xl"></i>
-                </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <i class="fas fa-sign-in-alt fa-2x mb-3"></i>
+                <h3><%= stats.totalLogins %></h3>
+                <p class="mb-0">Total de Logins</p>
             </div>
         </div>
-        
-        <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-xl p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-400 text-sm mb-1">Total de Acessos</p>
-                    <h3 class="text-2xl font-bold text-white"><%= stats.totalLogins %></h3>
-                </div>
-                <div class="w-12 h-12 bg-purple-500 bg-opacity-20 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-key text-purple-400 text-xl"></i>
-                </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <i class="fas fa-calendar-day fa-2x mb-3"></i>
+                <h3><%= stats.todayLogins %></h3>
+                <p class="mb-0">Logins Hoje</p>
             </div>
         </div>
     </div>
 
-    <!-- Codes Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 fade-in">
+    <!-- Codes Section -->
+    <div class="row">
         <% if (codes && codes.length > 0) { %>
-            <% codes.forEach(function(item) { %>
-                <div class="code-card rounded-xl p-6 relative group">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-robot text-white"></i>
+            <% codes.forEach(function(code, index) { %>
+                <div class="col-lg-4 col-md-6">
+                    <div class="code-card">
+                        <div class="code-card-header">
+                            <div class="chatgpt-icon">
+                                <i class="fas fa-robot"></i>
                             </div>
-                            <span class="text-gray-700 font-medium">Usuário ChatGPT</span>
+                            <h6 class="mb-0">Usuário ChatGPT:</h6>
                         </div>
-                        <div class="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                                onclick="window.utils.copyToClipboard('<%= item.code %>')"
-                                class="text-blue-600 hover:text-blue-700 transition-colors"
-                                title="Copiar código"
-                            >
-                                <i class="fas fa-copy"></i>
+                        <div class="code-card-body">
+                            <div class="user-email">
+                                <%= code.email || 'usuario@chatgpt.com' %>
+                            </div>
+                            <div class="code-display" id="code-<%= index %>">
+                                <%= code.code %>
+                            </div>
+                            <button class="copy-btn" onclick="copyCode('<%= index %>', '<%= code.code %>')">
+                                <i class="fas fa-copy me-2"></i>Copiar Código
                             </button>
+                            <div id="copied-notification-<%= index %>" class="copied-notification" style="display:none;">
+                                <i class="fas fa-check me-2"></i>Código <%= code.code %> foi copiado!
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-gray-500 text-sm mb-1">Código:</p>
-                            <p class="text-2xl font-mono font-bold text-gray-800"><%= item.code %></p>
-                        </div>
-                        <button 
-                            onclick="window.utils.copyToClipboard('<%= item.code %>')"
-                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
-                        >
-                            Copiar Código
-                        </button>
                     </div>
                 </div>
             <% }); %>
         <% } else { %>
-            <div class="col-span-full text-center py-12">
-                <div class="w-20 h-20 bg-gray-700 bg-opacity-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-code text-gray-400 text-3xl"></i>
+            <div class="col-12">
+                <div class="no-codes-message">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h3 class="text-muted">Nenhum código disponível</h3>
+                    <p class="text-muted">Nenhum código de verificação foi encontrado no momento.</p>
+                    <button class="btn btn-primary mt-3" onclick="updatePage()">
+                        <i class="fas fa-sync-alt me-2"></i>Atualizar Página
+                    </button>
                 </div>
-                <h3 class="text-xl font-medium text-white mb-2">Sem códigos para exibir</h3>
-                <p class="text-gray-400">Nenhum código ChatGPT disponível no momento.</p>
             </div>
         <% } %>
     </div>
 </div>
+
+<script>
+    function copyCode(index, code) {
+        // Copia o código para a área de transferência
+        navigator.clipboard.writeText(code).then(function() {
+            // Mostra a notificação
+            const notification = document.getElementById('copied-notification-' + index);
+            notification.style.display = 'block';
+            
+            // Esconde a notificação após 3 segundos
+            setTimeout(function() {
+                notification.style.display = 'none';
+            }, 3000);
+        }).catch(function(err) {
+            console.error('Erro ao copiar código: ', err);
+            alert('Código copiado: ' + code);
+        });
+    }
+    
+    function updatePage() {
+        window.location.reload();
+    }
+    
+    // Auto-refresh a cada 30 segundos
+    setInterval(function() {
+        window.location.reload();
+    }, 30000);
+</script>

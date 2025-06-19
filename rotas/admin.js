@@ -1,0 +1,365 @@
+
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcrypt');
+
+// Admin authentication middleware
+const requireAdmin = async (req, res, next) => {
+    if (!req.session.admin) {
+        return res.redirect('/admin/login');
+    }
+    next();
+};
+
+// Disable layout for all admin routes
+const disableLayout = (req, res, next) => {
+    res.locals.layout = false;
+    next();
+};
+
+// Root admin route - redirect to login or dashboard
+router.get('/', (req, res) => {
+    if (req.session.admin) {
+        return res.redirect('/admin/dashboard');
+    }
+    res.redirect('/admin/login');
+});
+
+// Admin login page
+router.get('/login', (req, res) => {
+    if (req.session.admin) {
+        return res.redirect('/admin/dashboard');
+    }
+
+    // Temporarily disable layouts for this render
+    const originalRender = res.render;
+    res.render = function (view, options, callback) {
+        const app = req.app;
+        app.set('layout', false);
+        return originalRender.call(this, view, options, callback);
+    };
+
+    res.render('admin/login_standalone', {
+        title: 'Admin Login',
+        error: null
+    });
+});
+
+// Admin login POST
+router.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    const db = req.db;
+
+    try {
+        console.log('👤 Admin login attempt:', { username });
+
+        const admin = await db.collection('admin_users').findOne({
+            username: username
+        });
+
+        console.log('🔍 Found admin user:', admin ? 'Yes' : 'No');
+
+        if (!admin) {
+            console.log('❌ Admin user not found');
+            return res.render('admin/login_standalone', {
+                title: 'Admin Login',
+                error: 'Invalid credentials'
+            });
+        }
+
+        const passwordMatch = await bcrypt.compare(password, admin.password);
+        console.log('🔐 Password match:', passwordMatch ? 'Yes' : 'No');
+
+        if (!passwordMatch) {
+            // Temporarily disable layouts for this render
+            const originalRender = res.render;
+            res.render = function (view, options, callback) {
+                const app = req.app;
+                app.set('layout', false);
+                return originalRender.call(this, view, options, callback);
+            };
+
+            return res.render('admin/login_standalone', {
+                title: 'Admin Login',
+                error: 'Invalid credentials'
+            });
+        }
+
+        // Update last login
+        await db.collection('admin_users').updateOne(
+            { _id: admin._id },
+            { $set: { lastLogin: new Date() } }
+        );
+
+        req.session.admin = {
+            id: admin._id,
+            username: admin.username,
+            isAdmin: true
+        };
+
+        res.redirect('/admin/dashboard');
+    } catch (error) {
+        console.error('Admin login error:', error);
+        // Temporarily disable layouts for this render
+        const originalRender = res.render;
+        res.render = function (view, options, callback) {
+            const app = req.app;
+            app.set('layout', false);
+            return originalRender.call(this, view, options, callback);
+        };
+
+        res.render('admin/login_standalone', {
+            title: 'Admin Login',
+            error: 'An error occurred'
+        });
+    }
+});
+
+// Admin dashboard
+router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
+    const db = req.db;
+    try {
+        const stats = {
+            totalUsers: await db.collection('users').countDocuments(),
+            totalLogins: await db.collection('access_logs').countDocuments({ action: 'verification_success' }),
+            todayLogins: await db.collection('access_logs').countDocuments({
+                action: 'verification_success',
+                timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+            })
+        };
+
+        const recentUsers = await db.collection('users')
+            .find()
+            .sort({ lastLogin: -1 })
+            .limit(10)
+            .toArray();
+
+        const recentLogs = await db.collection('access_logs')
+            .find()
+            .sort({ timestamp: -1 })
+            .limit(10)
+            .toArray();
+
+        res.render('admin/dashboard', {
+            title: 'Admin Dashboard',
+            stats,
+            recentUsers,
+            recentLogs,
+            layout: false
+        });
+    } catch (error) {
+        console.error('Dashboard error:', error);
+        res.status(500).send('Error loading dashboard');
+    }
+});
+
+// Settings page
+router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
+    const db = req.db;
+    try {
+        // Load global settings
+        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || {
+            maxSessions: 3,
+            sessionDuration: 5
+        };
+
+        // Load blocked IPs
+        const blockedIps = await db.collection('blocked_ips').find().sort({ blockedAt: -1 }).toArray();
+
+        res.render('admin/settings', {
+            title: 'Configurações do Sistema',
+            globalSettings,
+            blockedIps,
+            layout: false
+        });
+    } catch (error) {
+        console.error('Settings error:', error);
+        res.status(500).send('Error loading settings');
+    }
+});
+
+// Save global session settings
+router.post('/settings/global', requireAdmin, async (req, res) => {
+    const { maxSessions, sessionDuration } = req.body;
+    const db = req.db;
+
+    if (typeof maxSessions !== 'number' || typeof sessionDuration !== 'number') {
+        return res.status(400).json({ error: 'Invalid input types' });
+    }
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'globalSessionSettings' },
+            { $set: { maxSessions, sessionDuration } },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving global settings:', error);
+        res.status(500).json({ error: 'Failed to save global settings' });
+    }
+});
+
+// Block IP
+router.post('/settings/block-ip', requireAdmin, async (req, res) => {
+    const { ip } = req.body;
+    const db = req.db;
+
+    if (!ip) {
+        return res.status(400).json({ error: 'IP address is required' });
+    }
+
+    try {
+        // Check if IP is already blocked
+        const existingBlock = await db.collection('blocked_ips').findOne({ address: ip });
+        if (existingBlock) {
+            return res.status(400).json({ error: 'IP already blocked' });
+        }
+
+        await db.collection('blocked_ips').insertOne({
+            address: ip,
+            blockedAt: new Date(),
+            blockedBy: req.session.admin.username
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error blocking IP:', error);
+        res.status(500).json({ error: 'Failed to block IP' });
+    }
+});
+
+// Unblock IP
+router.post('/settings/unblock-ip', requireAdmin, async (req, res) => {
+    const { ip } = req.body;
+    const db = req.db;
+
+    if (!ip) {
+        return res.status(400).json({ error: 'IP address is required' });
+    }
+
+    try {
+        await db.collection('blocked_ips').deleteOne({ address: ip });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error unblocking IP:', error);
+        res.status(500).json({ error: 'Failed to unblock IP' });
+    }
+});
+
+// Reset all logs
+router.post('/settings/reset-logs', requireAdmin, async (req, res) => {
+    const db = req.db;
+
+    try {
+        await db.collection('access_logs').deleteMany({});
+        console.log('All logs reset by admin:', req.session.admin.username);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error resetting logs:', error);
+        res.status(500).json({ error: 'Failed to reset logs' });
+    }
+});
+
+// List all users
+router.get('/users', requireAdmin, disableLayout, async (req, res) => {
+    const db = req.db;
+    try {
+        const users = await db.collection('users')
+            .find()
+            .sort({ lastLogin: -1 })
+            .toArray();
+
+        res.render('admin/users', {
+            title: 'Manage Users',
+            users,
+            layout: false
+        });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).send('Error loading users');
+    }
+});
+
+// Add new user
+router.post('/users', requireAdmin, async (req, res) => {
+    const { email } = req.body;
+    const db = req.db;
+
+    try {
+        await db.collection('users').insertOne({
+            email,
+            verified: true,
+            createdAt: new Date(),
+            lastLogin: null
+        });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error adding user:', error);
+        res.status(500).json({ error: 'Failed to add user' });
+    }
+});
+
+// Delete user
+router.delete('/users/:email', requireAdmin, async (req, res) => {
+    const { email } = req.params;
+    const db = req.db;
+
+    try {
+        await db.collection('users').deleteOne({ email });
+        await db.collection('verification_codes').deleteMany({ email });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ error: 'Failed to delete user' });
+    }
+});
+
+// Reset user sessions
+router.post('/users/:email/reset-session', requireAdmin, async (req, res) => {
+    const { email } = req.params;
+    const db = req.db;
+
+    try {
+        await db.collection('verification_codes').deleteMany({ email });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error resetting session:', error);
+        res.status(500).json({ error: 'Failed to reset session' });
+    }
+});
+
+// Update user session settings (maxSessions and sessionDuration)
+router.put('/users/:email/session-settings', requireAdmin, async (req, res) => {
+    const { email } = req.params;
+    const { maxSessions, sessionDuration } = req.body;
+    const db = req.db;
+
+    if (typeof maxSessions !== 'number' || typeof sessionDuration !== 'number') {
+        return res.status(400).json({ error: 'Invalid input types' });
+    }
+
+    try {
+        const result = await db.collection('users').updateOne(
+            { email },
+            { $set: { maxSessions, sessionDuration } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating session settings:', error);
+        res.status(500).json({ error: 'Failed to update session settings' });
+    }
+});
+
+// Admin logout
+router.get('/logout', (req, res) => {
+    req.session.admin = null;
+    res.redirect('/admin/login');
+});
+
+module.exports = router;

@@ -18,37 +18,76 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Check blocked IP middleware
+const checkBlockedIP = async (req, res, next) => {
+  try {
+    const db = req.db;
+    const blockedIP = await db.collection('blocked_ips').findOne({ address: req.ip });
+    if (blockedIP) {
+      return res.status(403).json({ error: 'Seu IP está bloqueado. Entre em contato com o administrador.' });
+    }
+    next();
+  } catch (error) {
+    console.error('Error checking blocked IP:', error);
+    next();
+  }
+};
+
 // Routes
-router.get('/', (req, res) => {
+router.get('/', checkBlockedIP, (req, res) => {
   if (req.session.user) {
     return res.redirect('/codes');
   }
-  res.render('login', { 
+  res.render('login', {
     title: 'Login',
     user: null
   });
 });
 
-router.post('/api/login', async (req, res) => {
+router.post('/api/login', checkBlockedIP, async (req, res) => {
   const { email } = req.body;
+  console.log('📧 Login attempt for email:', email);
+
   if (!email) {
+    console.log('❌ No email provided');
     return res.status(400).json({ error: 'Email is required' });
   }
 
   try {
     const code = generateCode();
     const db = req.db;
-    
+
+    console.log('🔢 Generated verification code:', code);
+    console.log('💾 Checking database connection...');
+
+    if (!db) {
+      console.log('❌ Database not connected');
+      return res.status(500).json({ error: 'Database connection error' });
+    }
+
+    // Check if user exists in admin panel
+    const userExists = await db.collection('users').findOne({ email });
+    console.log('👤 User exists in database:', userExists ? 'Yes' : 'No');
+
+    if (!userExists) {
+      console.log('❌ Email not found in admin panel. User must be added by admin first.');
+      return res.status(403).json({ error: 'Email not authorized. Contact administrator.' });
+    }
+
     // Store verification code in MongoDB
-    await db.collection('verification_codes').deleteMany({ email }); // Remove old codes
+    console.log('🗑️ Removing old verification codes...');
+    await db.collection('verification_codes').deleteMany({ email });
+
+    console.log('💾 Storing new verification code...');
     await db.collection('verification_codes').insertOne({
       email,
       code,
       createdAt: new Date()
     });
 
+    console.log('📤 Sending email...');
     // Send verification code via email
-    await transporter.sendMail({
+    const emailResult = await transporter.sendMail({
       from: '"ChatGPT Code System" <contactgestorvip@gmail.com>',
       to: email,
       subject: 'Seu Código de Acesso - ChatGPT',
@@ -66,6 +105,8 @@ router.post('/api/login', async (req, res) => {
       text: `Seu código de verificação é: ${code}. Este código é válido por 10 minutos.`
     });
 
+    console.log('✅ Email sent successfully:', emailResult.messageId);
+
     // Log access attempt
     await db.collection('access_logs').insertOne({
       email,
@@ -74,26 +115,39 @@ router.post('/api/login', async (req, res) => {
       ip: req.ip
     });
 
+    console.log('📝 Access log recorded');
     res.json({ message: 'Verification code sent' });
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('❌ Error sending email:', error);
     res.status(500).json({ error: 'Failed to send verification code' });
   }
 });
 
-router.post('/api/verify', async (req, res) => {
+router.post('/api/verify', checkBlockedIP, async (req, res) => {
   const { email, code } = req.body;
-  
+  console.log('🔍 Verification attempt:', { email, code });
+
   if (!email || !code) {
+    console.log('❌ Missing email or code');
     return res.status(400).json({ error: 'Email and code are required' });
   }
 
   try {
     const db = req.db;
+    console.log('💾 Checking database connection...');
+
+    if (!db) {
+      console.log('❌ Database not connected');
+      return res.status(500).json({ error: 'Database connection error' });
+    }
+
     // Find verification code in MongoDB
+    console.log('🔍 Searching for verification code...');
     const verificationRecord = await db.collection('verification_codes').findOne({ email, code });
-    
+    console.log('📝 Verification record found:', verificationRecord ? 'Yes' : 'No');
+
     if (!verificationRecord) {
+      console.log('❌ Invalid verification code');
       await db.collection('access_logs').insertOne({
         email,
         action: 'verification_failed',
@@ -104,22 +158,26 @@ router.post('/api/verify', async (req, res) => {
     }
 
     // Remove used verification code
+    console.log('🗑️ Removing used verification code...');
     await db.collection('verification_codes').deleteOne({ _id: verificationRecord._id });
 
     // Create or update user record
+    console.log('👤 Updating user record...');
+    const user = await db.collection('users').findOne({ email });
     await db.collection('users').updateOne(
       { email },
-      { 
-        $set: { 
-          email, 
+      {
+        $set: {
+          email,
           lastLogin: new Date(),
-          verified: true 
-        } 
+          verified: true
+        }
       },
       { upsert: true }
     );
 
     // Log successful verification
+    console.log('📝 Recording successful verification...');
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_success',
@@ -127,19 +185,156 @@ router.post('/api/verify', async (req, res) => {
       ip: req.ip
     });
 
-    // Set user session
-    req.session.user = { email };
+    // Check if user has reached session limit
+    const activeSessions = await db.collection('active_sessions').countDocuments({ email });
+    const SESSION_LIMIT = user && user.maxSessions ? user.maxSessions : 3; // Limite personalizado ou padrão 3
 
+    if (activeSessions >= SESSION_LIMIT) {
+      console.log('❌ Session limit reached for user:', email);
+      await db.collection('access_logs').insertOne({
+        email,
+        action: 'session_limit_reached',
+        timestamp: new Date(),
+        ip: req.ip
+      });
+      return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
+    }
+
+    // Set user session
+    console.log('🔐 Setting user session...');
+    const sessionId = require('crypto').randomBytes(32).toString('hex');
+    req.session.user = { email, sessionId };
+
+    // Store session in database
+    const sessionDurationMinutes = user && user.sessionDuration ? user.sessionDuration : 5;
+    const now = new Date();
+    await db.collection('active_sessions').insertOne({
+      email,
+      sessionId,
+      createdAt: now,
+      lastActivity: now,
+      expiresAt: new Date(now.getTime() + sessionDurationMinutes * 60000),
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    console.log('✅ Verification successful');
     res.json({ token: 'verified' });
   } catch (error) {
-    console.error('Error verifying code:', error);
+    console.error('❌ Error verifying code:', error);
     res.status(500).json({ error: 'Verification failed' });
   }
 });
 
-router.get('/logout', (req, res) => {
+// Codes page route
+router.get('/codes', async (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/');
+  }
+
+  try {
+    const db = req.db;
+    console.log('📊 Loading codes page for user:', req.session.user.email);
+
+    // Get statistics
+    const stats = {
+      totalUsers: await db.collection('users').countDocuments(),
+      totalLogins: await db.collection('access_logs').countDocuments({ action: 'verification_success' }),
+      todayLogins: await db.collection('access_logs').countDocuments({
+        action: 'verification_success',
+        timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+      })
+    };
+
+    // Sample codes data (in a real implementation, this would come from email parsing)
+    const codes = [
+      {
+        email: 'eflaviaflores@gmail.com',
+        code: '857453'
+      },
+      {
+        email: 'eflaviaflores@gmail.com',
+        code: '961828'
+      },
+      {
+        email: 'luanadatequila@gmail.com',
+        code: '770017'
+      }
+    ];
+
+    console.log('📊 Stats loaded:', stats);
+    console.log('🔢 Codes available:', codes.length);
+
+    res.render('codes', {
+      title: 'ChatGPT Codes',
+      stats,
+      codes,
+      user: req.session.user
+    });
+  } catch (error) {
+    console.error('❌ Error loading codes page:', error);
+    res.status(500).send('Error loading codes page');
+  }
+});
+
+router.get('/logout', async (req, res) => {
+  if (req.session.user) {
+    const { email, sessionId } = req.session.user;
+    console.log('👋 User logout:', email);
+
+    try {
+      // Remove session from database
+      await req.db.collection('active_sessions').deleteOne({
+        email,
+        sessionId
+      });
+
+      // Log logout
+      await req.db.collection('access_logs').insertOne({
+        email,
+        action: 'logout',
+        timestamp: new Date(),
+        ip: req.ip
+      });
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+    }
+  }
+
   req.session.destroy();
   res.redirect('/');
+});
+
+// Middleware to check session validity and update last activity
+router.use(async (req, res, next) => {
+  if (req.session.user) {
+    const { email, sessionId } = req.session.user;
+
+    try {
+      // Update last activity
+      const session = await req.db.collection('active_sessions').findOneAndUpdate(
+        { email, sessionId },
+        { $set: { lastActivity: new Date() } }
+      );
+
+      // If session not found in database, invalidate it
+      if (!session.value) {
+        console.log('❌ Invalid session detected:', email);
+        req.session.destroy();
+        return res.redirect('/?error=session_expired');
+      }
+
+      // Clean up old sessions (inactive for more than 24 hours)
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await req.db.collection('active_sessions').deleteMany({
+        lastActivity: { $lt: yesterday }
+      });
+
+    } catch (error) {
+      console.error('❌ Error checking session:', error);
+    }
+  }
+  next();
 });
 
 module.exports = router;
