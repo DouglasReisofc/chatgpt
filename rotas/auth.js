@@ -351,16 +351,6 @@ router.get('/codes', async (req, res) => {
       { $set: { codesRemaining: remaining, lastActivity: new Date() } }
     );
 
-    // Get statistics
-    const stats = {
-      totalUsers: await db.collection('users').countDocuments(),
-      totalLogins: await db.collection('access_logs').countDocuments({ action: 'verification_success' }),
-      todayLogins: await db.collection('access_logs').countDocuments({
-        action: 'verification_success',
-        timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
-      })
-    };
-
     // Sample codes data (in a real implementation, this would come from email parsing)
     const codes = [
       {
@@ -377,12 +367,10 @@ router.get('/codes', async (req, res) => {
       }
     ];
 
-    console.log('📊 Stats loaded:', stats);
     console.log('🔢 Codes available:', codes.length);
 
     res.render('codes', {
       title: 'ChatGPT Codes',
-      stats,
       codes,
       user: req.session.user
     });
