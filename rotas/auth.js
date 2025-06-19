@@ -48,7 +48,7 @@ async function getIPInfo(ip) {
 const checkBlockedIP = async (req, res, next) => {
   try {
     const db = req.db;
-    const ip = getClientIP(req);
+    const ip = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip) || getClientIP(req);
     const blockedIP = await db.collection('blocked_ips').findOne({ address: ip });
     if (blockedIP) {
       return res.status(403).json({ error: 'Seu IP está bloqueado. Entre em contato com o administrador.' });
@@ -135,9 +135,10 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
     console.log('✅ Email sent successfully:', emailResult.messageId);
 
     // Log access attempt with IP details
-    const ip = getClientIP(req);
+    const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
+    const ip = ipFromBody || getClientIP(req);
     const referer = req.get('referer') || '';
-    const ipInfo = await getIPInfo(ip);
+    const ipInfo = req.body.ipInfo || await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_code_sent',
@@ -180,9 +181,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (!verificationRecord) {
       console.log('❌ Invalid verification code');
-      const ip = getClientIP(req);
+      const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
+      const ip = ipFromBody || getClientIP(req);
       const referer = req.get('referer') || '';
-      const ipInfo = await getIPInfo(ip);
+      const ipInfo = req.body.ipInfo || await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'verification_failed',
@@ -216,9 +218,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     // Log successful verification with IP details
     console.log('📝 Recording successful verification...');
-    const ip = getClientIP(req);
+    const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
+    const ip = ipFromBody || getClientIP(req);
     const referer = req.get('referer') || '';
-    const ipInfo = await getIPInfo(ip);
+    const ipInfo = req.body.ipInfo || await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_success',
@@ -235,9 +238,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (activeSessions >= SESSION_LIMIT) {
       console.log('❌ Session limit reached for user:', email);
-      const ip = getClientIP(req);
+      const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
+      const ip = ipFromBody || getClientIP(req);
       const referer = req.get('referer') || '';
-      const ipInfo = await getIPInfo(ip);
+      const ipInfo = req.body.ipInfo || await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'session_limit_reached',
@@ -340,8 +344,9 @@ router.get('/logout', async (req, res) => {
       });
 
       // Log logout
-      const ip = getClientIP(req);
-      const ipInfo = await getIPInfo(ip);
+      const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
+      const ip = ipFromBody || getClientIP(req);
+      const ipInfo = req.body.ipInfo || await getIPInfo(ip);
       await req.db.collection('access_logs').insertOne({
         email,
         action: 'logout',
