@@ -20,9 +20,19 @@ function generateCode() {
 }
 
 function getClientIP(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = forwarded ? forwarded.split(',')[0] : req.ip;
-  return ip.startsWith('::ffff:') ? ip.substring(7) : ip;
+  const forwarded = req.headers['x-forwarded-for'] || req.headers['x-real-ip'];
+  let ip = forwarded ? forwarded.split(',')[0].trim() :
+    (req.connection && req.connection.remoteAddress) ||
+    (req.socket && req.socket.remoteAddress) ||
+    req.ip;
+
+  if (ip && ip.startsWith('::ffff:')) {
+    ip = ip.substring(7);
+  }
+  if (ip === '::1') {
+    ip = '127.0.0.1';
+  }
+  return ip;
 }
 
 async function getIPInfo(ip) {
