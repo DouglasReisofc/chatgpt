@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
 const axios = require('axios');
+const net = require('net');
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -19,28 +20,78 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-function getClientIP(req) {
-  const forwarded = req.headers['x-forwarded-for'] || req.headers['x-real-ip'];
-  let ip = forwarded ? forwarded.split(',')[0].trim() :
-    (req.connection && req.connection.remoteAddress) ||
-    (req.socket && req.socket.remoteAddress) ||
-    req.ip;
+function isPrivateIP(ip) {
+  if (!ip) return true;
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return true;
+  const privateRanges = [/^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./];
+  return privateRanges.some(r => r.test(ip));
+}
 
-  if (ip && ip.startsWith('::ffff:')) {
-    ip = ip.substring(7);
+function isValidIP(ip) {
+  return net.isIP(ip) !== 0;
+}
+
+function getClientIP(req) {
+  let xForwardedFor = req.headers['x-forwarded-for'];
+  if (xForwardedFor) {
+    const ips = xForwardedFor.split(',').map(ip => ip.trim());
+    for (const ip of ips) {
+      if (isValidIP(ip) && !isPrivateIP(ip)) {
+        return ip;
+      }
+    }
   }
-  if (ip === '::1') {
-    ip = '127.0.0.1';
+
+  const proxyHeaders = [
+    'cf-connecting-ip',
+    'true-client-ip',
+    'x-real-ip',
+    'x-client-ip',
+    'x-forwarded',
+    'forwarded-for',
+    'forwarded'
+  ];
+  for (const header of proxyHeaders) {
+    const headerValue = req.headers[header];
+    if (headerValue) {
+      const ips = headerValue.split(',').map(ip => ip.trim());
+      for (const ip of ips) {
+        if (isValidIP(ip) && !isPrivateIP(ip)) {
+          return ip;
+        }
+      }
+    }
   }
-  return ip;
+
+  let directIP = req.connection?.remoteAddress || req.socket?.remoteAddress || req.ip;
+  if (directIP) {
+    if (directIP.startsWith('::ffff:')) directIP = directIP.substring(7);
+    if (directIP === '::1') directIP = '127.0.0.1';
+    if (directIP.includes(':')) directIP = directIP.split(':')[0];
+    if (isValidIP(directIP) && !isPrivateIP(directIP)) {
+      return directIP;
+    }
+  }
+  return 'unknown';
+}
+
+function resolveClientIP(req) {
+  const candidate = req.body?.ip || (req.body?.ipInfo && req.body.ipInfo.ip);
+  if (candidate && isValidIP(candidate) && !isPrivateIP(candidate)) {
+    return candidate;
+  }
+  return getClientIP(req);
 }
 
 async function getIPInfo(ip) {
   try {
-    const { data } = await axios.get(`https://ipwho.is/?ip=${ip}`);
-    return data;
+    if (!isValidIP(ip) || isPrivateIP(ip)) {
+      return { success: false, message: 'Invalid IP' };
+    }
+    const { data } = await axios.get(`https://ipwho.is/${ip}`);
+    return data && data.success ? data : { success: false, message: data.message || 'Invalid IP' };
   } catch (err) {
-    return { success: false };
+    return { success: false, message: err.message };
   }
 }
 
@@ -135,10 +186,11 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
     console.log('✅ Email sent successfully:', emailResult.messageId);
 
     // Log access attempt with IP details
-    const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
-    const ip = ipFromBody || getClientIP(req);
+    const ip = resolveClientIP(req);
     const referer = req.get('referer') || '';
-    const ipInfo = req.body.ipInfo || await getIPInfo(ip);
+    const ipInfo = req.body.ipInfo && req.body.ipInfo.ip === ip
+      ? req.body.ipInfo
+      : await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_code_sent',
@@ -181,10 +233,11 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (!verificationRecord) {
       console.log('❌ Invalid verification code');
-      const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
-      const ip = ipFromBody || getClientIP(req);
+      const ip = resolveClientIP(req);
       const referer = req.get('referer') || '';
-      const ipInfo = req.body.ipInfo || await getIPInfo(ip);
+      const ipInfo = req.body.ipInfo && req.body.ipInfo.ip === ip
+        ? req.body.ipInfo
+        : await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'verification_failed',
@@ -218,10 +271,11 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     // Log successful verification with IP details
     console.log('📝 Recording successful verification...');
-    const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
-    const ip = ipFromBody || getClientIP(req);
+    const ip = resolveClientIP(req);
     const referer = req.get('referer') || '';
-    const ipInfo = req.body.ipInfo || await getIPInfo(ip);
+    const ipInfo = req.body.ipInfo && req.body.ipInfo.ip === ip
+      ? req.body.ipInfo
+      : await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_success',
@@ -238,10 +292,11 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (activeSessions >= SESSION_LIMIT) {
       console.log('❌ Session limit reached for user:', email);
-      const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
-      const ip = ipFromBody || getClientIP(req);
+      const ip = resolveClientIP(req);
       const referer = req.get('referer') || '';
-      const ipInfo = req.body.ipInfo || await getIPInfo(ip);
+      const ipInfo = req.body.ipInfo && req.body.ipInfo.ip === ip
+        ? req.body.ipInfo
+        : await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'session_limit_reached',
@@ -344,9 +399,10 @@ router.get('/logout', async (req, res) => {
       });
 
       // Log logout
-      const ipFromBody = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip);
-      const ip = ipFromBody || getClientIP(req);
-      const ipInfo = req.body.ipInfo || await getIPInfo(ip);
+      const ip = resolveClientIP(req);
+      const ipInfo = req.body.ipInfo && req.body.ipInfo.ip === ip
+        ? req.body.ipInfo
+        : await getIPInfo(ip);
       await req.db.collection('access_logs').insertOne({
         email,
         action: 'logout',
