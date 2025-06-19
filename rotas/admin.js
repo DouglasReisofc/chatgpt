@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
+const axios = require('axios');
 
 // Admin authentication middleware
 const requireAdmin = async (req, res, next) => {
@@ -154,6 +155,18 @@ router.get('/logs', requireAdmin, disableLayout, async (req, res) => {
     } catch (error) {
         console.error('Logs page error:', error);
         res.status(500).send('Error loading logs');
+    }
+});
+
+// Fetch detailed IP info from ipwho.is
+router.get('/ip-info/:ip', requireAdmin, async (req, res) => {
+    const ip = req.params.ip;
+    try {
+        const { data } = await axios.get(`https://ipwho.is/${ip}`);
+        res.json(data);
+    } catch (error) {
+        console.error('Error fetching IP info:', error);
+        res.status(500).json({ error: 'Failed to fetch IP info' });
     }
 });
 

@@ -215,14 +215,6 @@ app.post('/api/login', async (req, res) => {
     console.log('Verification code sent:', code);
     console.log('Email sent to:', email);
 
-    // Log access attempt
-    await db.collection('access_logs').insertOne({
-      email,
-      action: 'verification_code_sent',
-      timestamp: new Date(),
-      ip: req.ip
-    });
-
     res.json({ message: 'Verification code sent' });
   } catch (error) {
     console.error('Error sending email:', error);

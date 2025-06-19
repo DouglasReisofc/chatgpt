@@ -185,13 +185,6 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
 
     console.log('✅ Email sent successfully:', emailResult.messageId);
 
-    // Log access attempt without storing IP
-    await db.collection('access_logs').insertOne({
-      email,
-      action: 'verification_code_sent',
-      timestamp: new Date()
-    });
-    console.log('📝 Access log recorded');
     res.json({ message: 'Verification code sent' });
   } catch (error) {
     console.error('❌ Error sending email:', error);
