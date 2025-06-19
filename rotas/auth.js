@@ -275,6 +275,11 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Create or update user record
     console.log('👤 Updating user record...');
     const user = await db.collection('users').findOne({ email });
+    const globalSettings =
+      (await db.collection('settings').findOne({ key: 'globalSessionSettings' })) || {
+        maxSessions: 3,
+        sessionDuration: 5
+      };
     let loginCredits =
       user && typeof user.loginCredits === 'number' ? user.loginCredits : null;
 
@@ -297,6 +302,12 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       loginCredits = Math.max(0, loginCredits - 2);
     }
 
+    const currentMax =
+      user && typeof user.maxSessions === 'number'
+        ? user.maxSessions
+        : globalSettings.maxSessions;
+    const newMaxSessions = Math.max(0, currentMax - 1);
+
     await db.collection('users').updateOne(
       { email },
       {
@@ -304,6 +315,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
           email,
           lastLogin: new Date(),
           verified: true,
+          maxSessions: newMaxSessions,
           ...(loginCredits !== null ? { loginCredits } : {})
         }
       },
@@ -325,7 +337,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     // Check if user has reached session limit
     const activeSessions = await db.collection('active_sessions').countDocuments({ email });
-    const SESSION_LIMIT = user && user.maxSessions ? user.maxSessions : 3; // Limite personalizado ou padrão 3
+    const SESSION_LIMIT = newMaxSessions;
 
     if (activeSessions >= SESSION_LIMIT) {
       console.log('❌ Session limit reached for user:', email);
@@ -347,7 +359,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     req.session.user = { email, sessionId, codesRemaining: CODE_PAGE_LIMIT };
 
     // Store session in database
-    const sessionDurationMinutes = user && user.sessionDuration ? user.sessionDuration : 5;
+    const sessionDurationMinutes =
+      user && typeof user.sessionDuration === 'number'
+        ? user.sessionDuration
+        : globalSettings.sessionDuration;
     const now = new Date();
     await db.collection('active_sessions').insertOne({
       email,
