@@ -1,0 +1,235 @@
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <!-- Logo and Title -->
+        <div class="text-center fade-in">
+            <div class="mx-auto h-20 w-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-6">
+                <i class="fas fa-robot text-white text-3xl"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-white mb-2">Acesso ao Sistema</h2>
+            <p class="text-gray-400">Digite seu email para receber o código de verificação</p>
+        </div>
+
+        <!-- Login Form -->
+        <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-8 card-shadow fade-in">
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-envelope mr-2"></i>
+                        Email
+                    </label>
+                    <input 
+                        id="email" 
+                        name="email" 
+                        type="email" 
+                        required 
+                        class="w-full px-4 py-3 bg-white bg-opacity-20 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="Seu endereço de email"
+                    >
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="submitBtn"
+                    class="w-full btn-primary text-white font-semibold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                >
+                    <span id="btnText">
+                        <i class="fas fa-paper-plane mr-2"></i>
+                        Enviar Código de Acesso
+                    </span>
+                    <span id="btnLoading" class="hidden">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        Enviando...
+                    </span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Verification Form (Hidden initially) -->
+        <div id="verificationForm" class="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-8 card-shadow hidden">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-check text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-white mb-2">Verificação</h3>
+                <p class="text-gray-400">Um código de verificação foi enviado para seu email.</p>
+            </div>
+
+            <form id="codeForm" class="space-y-6">
+                <div>
+                    <label for="code" class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-key mr-2"></i>
+                        Código de Verificação
+                    </label>
+                    <input 
+                        id="code" 
+                        name="code" 
+                        type="text" 
+                        maxlength="6"
+                        required 
+                        class="w-full px-4 py-3 bg-white bg-opacity-20 border border-gray-600 rounded-lg text-white text-center text-2xl font-mono tracking-widest placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="000000"
+                    >
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="verifyBtn"
+                    class="w-full btn-primary text-white font-semibold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                >
+                    <span id="verifyBtnText">
+                        <i class="fas fa-shield-alt mr-2"></i>
+                        Verificar Código
+                    </span>
+                    <span id="verifyBtnLoading" class="hidden">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        Verificando...
+                    </span>
+                </button>
+
+                <button 
+                    type="button" 
+                    id="backBtn"
+                    class="w-full text-gray-400 hover:text-white transition-colors py-2"
+                >
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Voltar
+                </button>
+            </form>
+        </div>
+
+        <!-- Features -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 fade-in">
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-blue-500 bg-opacity-20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-shield-alt text-blue-400"></i>
+                </div>
+                <h4 class="text-white font-medium mb-1">Seguro</h4>
+                <p class="text-gray-400 text-sm">Autenticação por email</p>
+            </div>
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-bolt text-green-400"></i>
+                </div>
+                <h4 class="text-white font-medium mb-1">Rápido</h4>
+                <p class="text-gray-400 text-sm">Acesso instantâneo</p>
+            </div>
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-purple-500 bg-opacity-20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-sync text-purple-400"></i>
+                </div>
+                <h4 class="text-white font-medium mb-1">Atualizado</h4>
+                <p class="text-gray-400 text-sm">Códigos sempre novos</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    const verificationForm = document.getElementById('verificationForm');
+    const codeForm = document.getElementById('codeForm');
+    const backBtn = document.getElementById('backBtn');
+    
+    let currentEmail = '';
+
+    // Login form submission
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnLoading = document.getElementById('btnLoading');
+        
+        // Show loading state
+        btnText.classList.add('hidden');
+        btnLoading.classList.remove('hidden');
+        submitBtn.disabled = true;
+        
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                currentEmail = email;
+                loginForm.parentElement.classList.add('hidden');
+                verificationForm.classList.remove('hidden');
+                verificationForm.classList.add('fade-in');
+                window.utils.showToast('Código enviado para seu email!', 'success');
+            } else {
+                window.utils.showToast(data.error || 'Erro ao enviar código', 'error');
+            }
+        } catch (error) {
+            window.utils.showToast('Erro de conexão', 'error');
+        } finally {
+            // Reset button state
+            btnText.classList.remove('hidden');
+            btnLoading.classList.add('hidden');
+            submitBtn.disabled = false;
+        }
+    });
+
+    // Code verification form submission
+    codeForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const code = document.getElementById('code').value;
+        const verifyBtn = document.getElementById('verifyBtn');
+        const verifyBtnText = document.getElementById('verifyBtnText');
+        const verifyBtnLoading = document.getElementById('verifyBtnLoading');
+        
+        // Show loading state
+        verifyBtnText.classList.add('hidden');
+        verifyBtnLoading.classList.remove('hidden');
+        verifyBtn.disabled = true;
+        
+        try {
+            const response = await fetch('/api/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: currentEmail, code })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                window.utils.showToast('Verificação bem-sucedida!', 'success');
+                setTimeout(() => {
+                    window.location.href = '/codes';
+                }, 1000);
+            } else {
+                window.utils.showToast(data.error || 'Código inválido', 'error');
+            }
+        } catch (error) {
+            window.utils.showToast('Erro de conexão', 'error');
+        } finally {
+            // Reset button state
+            verifyBtnText.classList.remove('hidden');
+            verifyBtnLoading.classList.add('hidden');
+            verifyBtn.disabled = false;
+        }
+    });
+
+    // Back button
+    backBtn.addEventListener('click', function() {
+        verificationForm.classList.add('hidden');
+        loginForm.parentElement.classList.remove('hidden');
+        document.getElementById('code').value = '';
+    });
+
+    // Auto-format code input
+    document.getElementById('code').addEventListener('input', function(e) {
+        e.target.value = e.target.value.replace(/\D/g, '');
+    });
+});
+</script>

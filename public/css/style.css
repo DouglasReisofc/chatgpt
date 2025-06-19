@@ -1,0 +1,70 @@
+/* Base styles */
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: #000;
+  color: #fff;
+}
+
+/* Button styles */
+.btn-primary {
+  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Card styles */
+.code-card {
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.code-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal styles */
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.75);
+  display: none;
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.fade-out {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Card shadow */
+.card-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}

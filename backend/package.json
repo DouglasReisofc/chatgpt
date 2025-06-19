@@ -1,0 +1,25 @@
+{
+  "name": "chatgpt-codes-backend",
+  "version": "1.0.0",
+  "description": "Backend for ChatGPT codes access system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "install-mongodb": "node install-mongodb.js"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "cors": "^2.8.5",
+    "ejs": "^3.1.10",
+    "express": "^4.18.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.18.1",
+    "imap-simple": "^5.1.0",
+    "mongodb": "^3.6.12",
+    "nodemailer": "^6.9.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

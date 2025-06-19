@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Código ChatGPT - Painel de Acesso</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: #000;
+      color: #fff;
+    }
+    .modal-bg {
+      background-color: rgba(0, 0, 0, 0.75);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-black py-6 shadow-md">
+    <div class="container mx-auto text-center">
+      <h1 class="text-3xl font-bold tracking-wide">Código ChatGPT</h1>
+    </div>
+  </header>
+
+  <!-- Refresh Button -->
+  <div class="container mx-auto mt-6 flex justify-end px-4">
+    <button id="refreshBtn" class="bg-white text-black px-4 py-2 rounded-full font-semibold hover:bg-gray-300 transition">Atualizar Página</button>
+  </div>
+
+  <!-- Codes Container -->
+  <main class="container mx-auto mt-8 px-4 flex flex-wrap justify-center gap-6">
+    <!-- Cards will be injected here -->
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="fixed inset-0 hidden items-center justify-center modal-bg z-50">
+    <div class="bg-white text-black rounded-3xl p-8 max-w-md w-full shadow-lg text-center animate-fadeIn">
+      <button id="modalClose" class="text-gray-700 hover:text-black text-3xl font-bold absolute top-4 right-6">&times;</button>
+      <h2 class="text-2xl font-bold mb-4">Importante!</h2>
+      <p class="mb-6">Por favor, não compre de revendedores que estão revendendo os Nossos produtos. Para sua segurança, adquira diretamente da fonte oficial.</p>
+      <a href="https://www.contasvip.com.br/" target="_blank" class="text-blue-600 hover:underline font-semibold mb-6 inline-block">Clique aqui para visitar o site oficial</a>
+      <br />
+      <button id="modalAccept" class="bg-green-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-green-700 transition">Entendi</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-black mt-auto py-6 text-center text-gray-400 text-sm">
+    &copy; 2025 Daniel Contas Premium. Todos os direitos reservados.
+  </footer>
+
+    <script>
+    const apiUrl = 'http://localhost:3000/api/codes';
+    const quota2fa = 5; // Limit number of codes shown
+
+    const mainContainer = document.querySelector('main');
+    const modal = document.getElementById('modal');
+    const modalClose = document.getElementById('modalClose');
+    const modalAccept = document.getElementById('modalAccept');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    // Check authentication on page load
+    window.addEventListener('load', () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/';
+        return;
+      }
+      modal.classList.remove('hidden');
+      fetchCodes();
+    });
+
+    modalClose.addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+
+    modalAccept.addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      fetchCodes();
+    });
+
+    async function fetchCodes() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          window.location.href = '/';
+          return;
+        }
+
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Carregando...';
+        
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          window.location.href = '/';
+          return;
+        }
+
+        const codes = await response.json();
+        renderCodes(codes);
+      } catch (error) {
+        mainContainer.innerHTML = '<p class="text-red-500">Erro ao carregar os códigos.</p>';
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Atualizar Página';
+      }
+    }
+
+    function renderCodes(codes) {
+      mainContainer.innerHTML = '';
+      if (!codes.length) {
+        mainContainer.innerHTML = '<p class="text-gray-400 text-center w-full">Sem códigos para exibir.</p>';
+        return;
+      }
+      codes.slice(0, quota2fa).forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'bg-white text-black rounded-2xl p-6 shadow-lg w-72 flex flex-col items-center';
+        card.innerHTML = `
+          <img src="images/rdweb2.png" alt="Imagem" class="rounded-xl mb-4 w-32 h-32 object-contain" />
+          <h3 class="font-semibold text-lg mb-2">Usuário ChatGPT</h3>
+          <p class="text-xl font-mono mb-4">Código: <strong id="code-${index}">${item.code}</strong></p>
+          <button class="bg-black text-white px-4 py-2 rounded-full hover:bg-gray-800 transition" onclick="copyCode(${index})">Copiar Código</button>
+          <p id="copied-notification-${index}" class="text-green-600 font-semibold mt-2 hidden">! O código ${item.code} foi copiado.</p>
+        `;
+        mainContainer.appendChild(card);
+      });
+    }
+
+    function copyCode(id) {
+      const codeElement = document.getElementById(`code-${id}`);
+      const code = codeElement.textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const notification = document.getElementById(`copied-notification-${id}`);
+        notification.classList.remove('hidden');
+        setTimeout(() => {
+          notification.classList.add('hidden');
+        }, 2000);
+      });
+    }
+  </script>
+
+  <style>
+    @keyframes fadeIn {
+      from {opacity: 0; transform: translateY(-10px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.5s ease forwards;
+    }
+  </style>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - Código ChatGPT</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .code-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .code-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <!-- Header -->
+    <header class="bg-black bg-opacity-20 backdrop-blur-sm border-b border-gray-700">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-robot text-white text-lg"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-white">Código ChatGPT</h1>
+                </div>
+                
+                <% if (user) { %>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-300">
+                        <i class="fas fa-user-circle mr-2"></i>
+                        <%= user.email %>
+                    </span>
+                    <a href="/logout" class="text-red-400 hover:text-red-300 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-1"></i>
+                        Sair
+                    </a>
+                </div>
+                <% } %>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <%- body %>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-black bg-opacity-20 backdrop-blur-sm border-t border-gray-700 mt-auto">
+        <div class="container mx-auto px-4 py-6">
+            <div class="text-center text-gray-400">
+                <p>&copy; 2025 Daniel Contas Premium. Todos os direitos reservados.</p>
+                <p class="text-sm mt-2">Sistema seguro de acesso aos códigos ChatGPT</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/js/app.js"></script>
+    <script>
+        // Global utilities
+        window.utils = {
+            showToast: function(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `fixed top-4 right-4 p-4 rounded-lg text-white z-50 fade-in ${
+                    type === 'success' ? 'bg-green-500' : 
+                    type === 'error' ? 'bg-red-500' : 
+                    'bg-blue-500'
+                }`;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.remove();
+                }, 3000);
+            },
+            
+            copyToClipboard: function(text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    this.showToast('Código copiado!', 'success');
+                }).catch(() => {
+                    this.showToast('Erro ao copiar código', 'error');
+                });
+            }
+        };
+    </script>
+</body>
+</html>
