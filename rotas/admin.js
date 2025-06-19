@@ -158,6 +158,25 @@ router.get('/logs', requireAdmin, disableLayout, async (req, res) => {
     }
 });
 
+// Blocked IPs management page
+router.get('/blocked-ips', requireAdmin, disableLayout, async (req, res) => {
+    try {
+        const blockedIps = await req.db.collection('blocked_ips')
+            .find()
+            .sort({ blockedAt: -1 })
+            .toArray();
+
+        res.render('admin/blocked_ips', {
+            title: 'Bloqueio de IPs',
+            blockedIps,
+            layout: false
+        });
+    } catch (error) {
+        console.error('Blocked IPs page error:', error);
+        res.status(500).send('Error loading blocked IPs');
+    }
+});
+
 // Fetch detailed IP info from ipwho.is
 router.get('/ip-info/:ip', requireAdmin, async (req, res) => {
     const ip = req.params.ip;

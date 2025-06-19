@@ -4,6 +4,8 @@ const nodemailer = require('nodemailer');
 const axios = require('axios');
 const net = require('net');
 
+const CODE_PAGE_LIMIT = 5; // maximum number of /codes accesses per session
+
 // Email configuration
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -278,7 +280,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Set user session
     console.log('🔐 Setting user session...');
     const sessionId = require('crypto').randomBytes(32).toString('hex');
-    req.session.user = { email, sessionId };
+    req.session.user = { email, sessionId, codesRemaining: CODE_PAGE_LIMIT };
 
     // Store session in database
     const sessionDurationMinutes = user && user.sessionDuration ? user.sessionDuration : 5;
@@ -290,7 +292,8 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       lastActivity: now,
       expiresAt: new Date(now.getTime() + sessionDurationMinutes * 60000),
       ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
+      codesRemaining: CODE_PAGE_LIMIT
     });
 
     console.log('✅ Verification successful');
@@ -310,6 +313,24 @@ router.get('/codes', async (req, res) => {
   try {
     const db = req.db;
     console.log('📊 Loading codes page for user:', req.session.user.email);
+
+    const { email, sessionId } = req.session.user;
+    let sessionRecord = await db.collection('active_sessions').findOne({ email, sessionId });
+    let remaining = sessionRecord ? sessionRecord.codesRemaining : CODE_PAGE_LIMIT;
+    if (remaining === undefined || remaining === null) {
+      remaining = CODE_PAGE_LIMIT;
+    }
+
+    if (remaining <= 0) {
+      return res.render('limit', { title: 'Acesso Bloqueado' });
+    }
+
+    remaining -= 1;
+    req.session.user.codesRemaining = remaining;
+    await db.collection('active_sessions').updateOne(
+      { email, sessionId },
+      { $set: { codesRemaining: remaining, lastActivity: new Date() } }
+    );
 
     // Get statistics
     const stats = {
@@ -398,6 +419,10 @@ router.use(async (req, res, next) => {
         console.log('⏰ Session expired for:', email);
         req.session.destroy();
         return res.redirect('/?error=session_expired');
+      }
+
+      if (typeof sessionRecord.codesRemaining === 'number') {
+        req.session.user.codesRemaining = sessionRecord.codesRemaining;
       }
 
       await req.db.collection('active_sessions').updateOne(
