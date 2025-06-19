@@ -379,7 +379,26 @@ router.post('/users/:email/reset-session', requireAdmin, async (req, res) => {
     const db = req.db;
 
     try {
+        // Remove any active sessions and pending verification codes
+        await db.collection('active_sessions').deleteMany({ email });
         await db.collection('verification_codes').deleteMany({ email });
+
+        // Restore the user's session limits to the global defaults
+        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || {
+            maxSessions: 3,
+            sessionDuration: 5
+        };
+
+        await db.collection('users').updateOne(
+            { email },
+            {
+                $set: {
+                    maxSessions: globalSettings.maxSessions,
+                    sessionDuration: globalSettings.sessionDuration
+                }
+            }
+        );
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error resetting session:', error);
