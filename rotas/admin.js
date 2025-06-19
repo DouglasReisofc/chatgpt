@@ -204,7 +204,7 @@ router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
 
 // Save global session settings
 router.post('/settings/global', requireAdmin, async (req, res) => {
-    const { maxSessions, sessionDuration } = req.body;
+    const { maxSessions, sessionDuration, applyToAll } = req.body;
     const db = req.db;
 
     if (typeof maxSessions !== 'number' || typeof sessionDuration !== 'number') {
@@ -217,6 +217,11 @@ router.post('/settings/global', requireAdmin, async (req, res) => {
             { $set: { maxSessions, sessionDuration } },
             { upsert: true }
         );
+
+        if (applyToAll) {
+            await db.collection('users').updateMany({}, { $set: { maxSessions, sessionDuration } });
+        }
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error saving global settings:', error);
@@ -285,6 +290,20 @@ router.post('/settings/reset-logs', requireAdmin, async (req, res) => {
     }
 });
 
+// Reset all active sessions
+router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
+    const db = req.db;
+
+    try {
+        await db.collection('active_sessions').deleteMany({});
+        console.log('All sessions reset by admin:', req.session.admin.username);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error resetting sessions:', error);
+        res.status(500).json({ error: 'Failed to reset sessions' });
+    }
+});
+
 // List all users
 router.get('/users', requireAdmin, disableLayout, async (req, res) => {
     const db = req.db;
@@ -294,9 +313,12 @@ router.get('/users', requireAdmin, disableLayout, async (req, res) => {
             .sort({ lastLogin: -1 })
             .toArray();
 
+        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || { maxSessions: 3, sessionDuration: 5 };
+
         res.render('admin/users', {
             title: 'Manage Users',
             users,
+            globalSettings,
             layout: false
         });
     } catch (error) {

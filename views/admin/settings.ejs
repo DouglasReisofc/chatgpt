@@ -137,6 +137,17 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Session Reset Card -->
+                <div class="card settings-card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Gerenciamento de Sessões</h4>
+                        <p class="text-danger">Esta ação encerra todas as sessões ativas.</p>
+                        <button id="resetSessionsBtn" class="btn btn-warning">
+                            <i class="fas fa-power-off me-2"></i>Resetar Sessões
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -168,6 +179,7 @@
             const resetLogsBtn = document.getElementById('resetLogsBtn');
             const resetLogsModal = new bootstrap.Modal(document.getElementById('resetLogsModal'));
             const confirmResetLogsBtn = document.getElementById('confirmResetLogs');
+            const resetSessionsBtn = document.getElementById('resetSessionsBtn');
 
             // Load initial values
             const maxSessionsInput = document.getElementById('globalMaxSessions');
@@ -259,6 +271,22 @@
                     }
                 } catch (error) {
                     alert('Erro ao resetar logs.');
+                }
+            });
+
+            // Reset Sessions
+            resetSessionsBtn.addEventListener('click', async function() {
+                if(confirm('Deseja encerrar todas as sessões ativas?')) {
+                    try {
+                        const response = await fetch('/admin/settings/reset-sessions', { method: 'POST' });
+                        if (response.ok) {
+                            alert('Sessões resetadas');
+                        } else {
+                            alert('Erro ao resetar sessões');
+                        }
+                    } catch (error) {
+                        alert('Erro ao resetar sessões');
+                    }
                 }
             });
 

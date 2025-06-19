@@ -66,9 +66,14 @@
             <div class="col-md-9 col-lg-10 ms-auto px-4 py-3">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Gerenciar Usuários</h2>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
-                        <i class="fas fa-plus me-2"></i>Adicionar Usuário
-                    </button>
+                    <div>
+                        <button class="btn btn-secondary me-2" data-bs-toggle="modal" data-bs-target="#globalSessionModal">
+                            <i class="fas fa-cog me-1"></i>Configurar Sessões
+                        </button>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                            <i class="fas fa-plus me-2"></i>Adicionar Usuário
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Users Table -->
@@ -119,6 +124,40 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Session Modal -->
+    <div class="modal fade" id="globalSessionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Configurações Globais de Sessão</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="globalSessionForm">
+                        <div class="mb-3">
+                            <label class="form-label">Limite de Sessões Padrão</label>
+                            <input type="number" class="form-control" id="globalMaxSessions" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Duração da Sessão (minutos)</label>
+                            <input type="number" class="form-control" id="globalSessionDuration" min="1" required>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="applyToAll">
+                            <label class="form-check-label" for="applyToAll">
+                                Aplicar estas configurações para todos os usuários
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveGlobalSession">Salvar</button>
                 </div>
             </div>
         </div>
@@ -197,6 +236,51 @@
                 });
             });
 
+            // Save per-user session settings
+            document.querySelectorAll('.save-settings').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const row = this.closest('tr');
+                    const email = row.dataset.email;
+                    const maxSessions = parseInt(row.querySelector('.max-sessions').value);
+                    const sessionDuration = parseInt(row.querySelector('.session-duration').value);
+                    try {
+                        const response = await fetch(`/admin/users/${email}/session-settings`, {
+                            method: 'PUT',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ maxSessions, sessionDuration })
+                        });
+                        if (response.ok) {
+                            alert('Configurações salvas');
+                        } else {
+                            alert('Erro ao salvar configurações');
+                        }
+                    } catch (error) {
+                        alert('Erro ao salvar configurações');
+                    }
+                });
+            });
+
+            // Global session form
+            document.getElementById('saveGlobalSession').addEventListener('click', async function() {
+                const maxSessions = parseInt(document.getElementById('globalMaxSessions').value);
+                const sessionDuration = parseInt(document.getElementById('globalSessionDuration').value);
+                const applyToAll = document.getElementById('applyToAll').checked;
+                try {
+                    const response = await fetch('/admin/settings/global', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ maxSessions, sessionDuration, applyToAll })
+                    });
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Erro ao salvar configurações globais');
+                    }
+                } catch (error) {
+                    alert('Erro ao salvar configurações globais');
+                }
+            });
+
             // Delete User
             document.querySelectorAll('.delete-user').forEach(button => {
                 button.addEventListener('click', async function() {
@@ -219,6 +303,10 @@
                     }
                 });
             });
+
+            // Load global settings into modal
+            document.getElementById('globalMaxSessions').value = <%= globalSettings.maxSessions %>;
+            document.getElementById('globalSessionDuration').value = <%= globalSettings.sessionDuration %>;
         });
     </script>
 </body>

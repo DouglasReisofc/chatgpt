@@ -63,7 +63,12 @@
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 ms-auto px-4 py-3">
-                <h2 class="mb-4">Logs de Acesso</h2>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="m-0">Logs de Acesso</h2>
+                    <button id="resetLogsBtn" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash-alt me-1"></i>Resetar Logs
+                    </button>
+                </div>
                 <div class="table-container">
                     <div class="table-responsive">
                         <table class="table" id="logsTable">
@@ -125,6 +130,21 @@
                     alert('Erro ao bloquear IP');
                 }
             });
+        });
+
+        document.getElementById('resetLogsBtn').addEventListener('click', async () => {
+            if(confirm('Deseja realmente apagar todos os logs?')) {
+                try {
+                    const res = await fetch('/admin/settings/reset-logs', { method: 'POST' });
+                    if(res.ok) {
+                        location.reload();
+                    } else {
+                        alert('Erro ao resetar logs');
+                    }
+                } catch(e) {
+                    alert('Erro ao resetar logs');
+                }
+            }
         });
     </script>
 </body>

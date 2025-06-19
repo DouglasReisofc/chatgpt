@@ -340,20 +340,26 @@ router.use(async (req, res, next) => {
     const { email, sessionId } = req.session.user;
 
     try {
-      // Update last activity
-      const session = await req.db.collection('active_sessions').findOneAndUpdate(
-        { email, sessionId },
-        { $set: { lastActivity: new Date() } }
-      );
+      const sessionRecord = await req.db.collection('active_sessions').findOne({ email, sessionId });
 
-      // If session not found in database, invalidate it
-      if (!session.value) {
+      if (!sessionRecord) {
         console.log('❌ Invalid session detected:', email);
         req.session.destroy();
         return res.redirect('/?error=session_expired');
       }
 
-      // Clean up old sessions (inactive for more than 24 hours)
+      if (sessionRecord.expiresAt && new Date() > sessionRecord.expiresAt) {
+        await req.db.collection('active_sessions').deleteOne({ email, sessionId });
+        console.log('⏰ Session expired for:', email);
+        req.session.destroy();
+        return res.redirect('/?error=session_expired');
+      }
+
+      await req.db.collection('active_sessions').updateOne(
+        { email, sessionId },
+        { $set: { lastActivity: new Date() } }
+      );
+
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
       await req.db.collection('active_sessions').deleteMany({
         lastActivity: { $lt: yesterday }
