@@ -390,17 +390,21 @@ router.post('/users/:email/reset-session', requireAdmin, async (req, res) => {
 // Update user session settings (maxSessions and sessionDuration)
 router.put('/users/:email/session-settings', requireAdmin, async (req, res) => {
     const { email } = req.params;
-    const { maxSessions, sessionDuration } = req.body;
+    const { maxSessions, sessionDuration, loginCredits } = req.body;
     const db = req.db;
 
-    if (typeof maxSessions !== 'number' || typeof sessionDuration !== 'number') {
+    if (
+        typeof maxSessions !== 'number' ||
+        typeof sessionDuration !== 'number' ||
+        typeof loginCredits !== 'number'
+    ) {
         return res.status(400).json({ error: 'Invalid input types' });
     }
 
     try {
         const result = await db.collection('users').updateOne(
             { email },
-            { $set: { maxSessions, sessionDuration } }
+            { $set: { maxSessions, sessionDuration, loginCredits } }
         );
 
         if (result.matchedCount === 0) {

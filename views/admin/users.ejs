@@ -90,6 +90,7 @@
                                     <th>Último Login</th>
                                     <th>Limite Sessões</th>
                                     <th>Duração Sessão (min)</th>
+                                    <th>Créditos Login</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -110,6 +111,9 @@
                                     </td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm session-duration" value="<%= user.sessionDuration || 5 %>" min="1" style="width: 80px;">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm login-credits" value="<%= typeof user.loginCredits === 'number' ? user.loginCredits : 0 %>" min="0" style="width: 80px;">
                                     </td>
                                     <td>
                                         <button class="btn btn-warning btn-action reset-session" title="Resetar Sessão">
@@ -246,11 +250,12 @@
                     const email = row.dataset.email;
                     const maxSessions = parseInt(row.querySelector('.max-sessions').value);
                     const sessionDuration = parseInt(row.querySelector('.session-duration').value);
+                    const loginCredits = parseInt(row.querySelector('.login-credits').value);
                     try {
                         const response = await fetch(`/admin/users/${email}/session-settings`, {
                             method: 'PUT',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ maxSessions, sessionDuration })
+                            body: JSON.stringify({ maxSessions, sessionDuration, loginCredits })
                         });
                         if (response.ok) {
                             alert('Configurações salvas');

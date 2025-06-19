@@ -275,13 +275,36 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Create or update user record
     console.log('👤 Updating user record...');
     const user = await db.collection('users').findOne({ email });
+    let loginCredits =
+      user && typeof user.loginCredits === 'number' ? user.loginCredits : null;
+
+    if (loginCredits !== null) {
+      if (loginCredits <= 0) {
+        console.log('❌ Login credit limit reached for user:', email);
+        await db.collection('access_logs').insertOne({
+          email,
+          action: 'login_limit_reached',
+          timestamp: new Date(),
+          ip,
+          country: ipInfo.country || 'Desconhecido',
+          referer,
+          ipInfo
+        });
+        return res
+          .status(403)
+          .json({ error: 'Você não tem mais limite disponível.' });
+      }
+      loginCredits = Math.max(0, loginCredits - 2);
+    }
+
     await db.collection('users').updateOne(
       { email },
       {
         $set: {
           email,
           lastLogin: new Date(),
-          verified: true
+          verified: true,
+          ...(loginCredits !== null ? { loginCredits } : {})
         }
       },
       { upsert: true }
