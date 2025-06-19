@@ -109,9 +109,9 @@ const adminRoutes = require('./rotas/admin');
 // Use routes
 app.use('/', authRoutes);
 
-// Disable express-ejs-layouts for admin routes
-app.use('/admin/*', (req, res, next) => {
-  app.set('layout', '');
+// Disable layout only for admin routes without affecting others
+app.use('/admin*', (req, res, next) => {
+  res.locals.layout = false;
   next();
 });
 

@@ -31,17 +31,10 @@ router.get('/login', (req, res) => {
         return res.redirect('/admin/dashboard');
     }
 
-    // Temporarily disable layouts for this render
-    const originalRender = res.render;
-    res.render = function (view, options, callback) {
-        const app = req.app;
-        app.set('layout', false);
-        return originalRender.call(this, view, options, callback);
-    };
-
     res.render('admin/login_standalone', {
         title: 'Admin Login',
-        error: null
+        error: null,
+        layout: false
     });
 });
 
@@ -63,7 +56,8 @@ router.post('/login', async (req, res) => {
             console.log('❌ Admin user not found');
             return res.render('admin/login_standalone', {
                 title: 'Admin Login',
-                error: 'Invalid credentials'
+                error: 'Invalid credentials',
+                layout: false
             });
         }
 
@@ -71,18 +65,11 @@ router.post('/login', async (req, res) => {
         console.log('🔐 Password match:', passwordMatch ? 'Yes' : 'No');
 
         if (!passwordMatch) {
-            // Temporarily disable layouts for this render
-            const originalRender = res.render;
-            res.render = function (view, options, callback) {
-                const app = req.app;
-                app.set('layout', false);
-                return originalRender.call(this, view, options, callback);
-            };
-
-            return res.render('admin/login_standalone', {
-                title: 'Admin Login',
-                error: 'Invalid credentials'
-            });
+        return res.render('admin/login_standalone', {
+            title: 'Admin Login',
+            error: 'Invalid credentials',
+            layout: false
+        });
         }
 
         // Update last login
@@ -100,17 +87,10 @@ router.post('/login', async (req, res) => {
         res.redirect('/admin/dashboard');
     } catch (error) {
         console.error('Admin login error:', error);
-        // Temporarily disable layouts for this render
-        const originalRender = res.render;
-        res.render = function (view, options, callback) {
-            const app = req.app;
-            app.set('layout', false);
-            return originalRender.call(this, view, options, callback);
-        };
-
         res.render('admin/login_standalone', {
             title: 'Admin Login',
-            error: 'An error occurred'
+            error: 'An error occurred',
+            layout: false
         });
     }
 });
