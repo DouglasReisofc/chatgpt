@@ -12,9 +12,9 @@ const requireAdmin = async (req, res, next) => {
     next();
 };
 
-// Disable layout for all admin routes
-const disableLayout = (req, res, next) => {
-    res.locals.layout = false;
+// Use custom admin layout for dashboard pages
+const adminLayout = (req, res, next) => {
+    res.locals.layout = 'layouts/admin';
     next();
 };
 
@@ -97,7 +97,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Admin dashboard
-router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
+router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         const stats = {
@@ -126,7 +126,7 @@ router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
             stats,
             recentUsers,
             recentLogs,
-            layout: false
+            page: 'dashboard'
         });
     } catch (error) {
         console.error('Dashboard error:', error);
@@ -135,7 +135,7 @@ router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
 });
 
 // Access logs page
-router.get('/logs', requireAdmin, disableLayout, async (req, res) => {
+router.get('/logs', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         const logs = await db.collection('access_logs')
@@ -150,7 +150,7 @@ router.get('/logs', requireAdmin, disableLayout, async (req, res) => {
             title: 'Logs de Acesso',
             logs,
             blockedIps,
-            layout: false
+            page: 'logs'
         });
     } catch (error) {
         console.error('Logs page error:', error);
@@ -159,7 +159,7 @@ router.get('/logs', requireAdmin, disableLayout, async (req, res) => {
 });
 
 // Blocked IPs management page
-router.get('/blocked-ips', requireAdmin, disableLayout, async (req, res) => {
+router.get('/blocked-ips', requireAdmin, adminLayout, async (req, res) => {
     try {
         const blockedIps = await req.db.collection('blocked_ips')
             .find()
@@ -169,7 +169,7 @@ router.get('/blocked-ips', requireAdmin, disableLayout, async (req, res) => {
         res.render('admin/blocked_ips', {
             title: 'Bloqueio de IPs',
             blockedIps,
-            layout: false
+            page: 'blocked-ips'
         });
     } catch (error) {
         console.error('Blocked IPs page error:', error);
@@ -190,7 +190,7 @@ router.get('/ip-info/:ip', requireAdmin, async (req, res) => {
 });
 
 // Settings page
-router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
+router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         // Load global settings
@@ -206,7 +206,7 @@ router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
             title: 'Configurações do Sistema',
             globalSettings,
             blockedIps,
-            layout: false
+            page: 'settings'
         });
     } catch (error) {
         console.error('Settings error:', error);
@@ -317,7 +317,7 @@ router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
 });
 
 // List all users
-router.get('/users', requireAdmin, disableLayout, async (req, res) => {
+router.get('/users', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         const users = await db.collection('users')
@@ -331,7 +331,7 @@ router.get('/users', requireAdmin, disableLayout, async (req, res) => {
             title: 'Manage Users',
             users,
             globalSettings,
-            layout: false
+            page: 'users'
         });
     } catch (error) {
         console.error('Error fetching users:', error);
