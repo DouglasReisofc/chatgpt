@@ -163,6 +163,28 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
       return res.status(403).json({ error: 'Email not authorized. Contact administrator.' });
     }
 
+    // Respect session limit before sending the code
+    const activeSessions = await db
+      .collection('active_sessions')
+      .countDocuments({ email });
+    const SESSION_LIMIT = userExists.maxSessions || 3;
+
+    if (activeSessions >= SESSION_LIMIT) {
+      console.log('❌ Session limit reached (login request):', email);
+      await db.collection('access_logs').insertOne({
+        email,
+        action: 'session_limit_reached',
+        timestamp: new Date(),
+        ip: resolveClientIP(req),
+        country: (req.body.ipInfo && req.body.ipInfo.country) || 'Desconhecido',
+        referer: resolveReferer(req),
+        ipInfo: req.body.ipInfo || null
+      });
+      return res
+        .status(403)
+        .json({ error: 'Limite de sessões atingido. Faça logout em outro dispositivo.' });
+    }
+
     // Store verification code in MongoDB
     console.log('🗑️ Removing old verification codes...');
     await db.collection('verification_codes').deleteMany({ email });
