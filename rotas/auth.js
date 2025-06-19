@@ -19,12 +19,18 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function getClientIP(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = forwarded ? forwarded.split(',')[0] : req.ip;
+  return ip.startsWith('::ffff:') ? ip.substring(7) : ip;
+}
+
 async function getIPInfo(ip) {
   try {
-    const { data } = await axios.get(`https://ipwho.is/${ip}`);
-    return data.country || 'Desconhecido';
+    const { data } = await axios.get(`https://ipwho.is/?ip=${ip}`);
+    return data;
   } catch (err) {
-    return 'Desconhecido';
+    return { success: false };
   }
 }
 
@@ -32,7 +38,8 @@ async function getIPInfo(ip) {
 const checkBlockedIP = async (req, res, next) => {
   try {
     const db = req.db;
-    const blockedIP = await db.collection('blocked_ips').findOne({ address: req.ip });
+    const ip = getClientIP(req);
+    const blockedIP = await db.collection('blocked_ips').findOne({ address: ip });
     if (blockedIP) {
       return res.status(403).json({ error: 'Seu IP está bloqueado. Entre em contato com o administrador.' });
     }
@@ -118,16 +125,17 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
     console.log('✅ Email sent successfully:', emailResult.messageId);
 
     // Log access attempt with IP details
-    const ip = req.ip;
+    const ip = getClientIP(req);
     const referer = req.get('referer') || '';
-    const country = await getIPInfo(ip);
+    const ipInfo = await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_code_sent',
       timestamp: new Date(),
       ip,
-      country,
-      referer
+      country: ipInfo.country || 'Desconhecido',
+      referer,
+      ipInfo
     });
     console.log('📝 Access log recorded');
     res.json({ message: 'Verification code sent' });
@@ -162,16 +170,17 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (!verificationRecord) {
       console.log('❌ Invalid verification code');
-      const ip = req.ip;
+      const ip = getClientIP(req);
       const referer = req.get('referer') || '';
-      const country = await getIPInfo(ip);
+      const ipInfo = await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'verification_failed',
         timestamp: new Date(),
         ip,
-        country,
-        referer
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
       });
       return res.status(401).json({ error: 'Invalid code' });
     }
@@ -197,16 +206,17 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     // Log successful verification with IP details
     console.log('📝 Recording successful verification...');
-    const ip = req.ip;
+    const ip = getClientIP(req);
     const referer = req.get('referer') || '';
-    const country = await getIPInfo(ip);
+    const ipInfo = await getIPInfo(ip);
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_success',
       timestamp: new Date(),
       ip,
-      country,
-      referer
+      country: ipInfo.country || 'Desconhecido',
+      referer,
+      ipInfo
     });
 
     // Check if user has reached session limit
@@ -215,16 +225,17 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (activeSessions >= SESSION_LIMIT) {
       console.log('❌ Session limit reached for user:', email);
-      const ip = req.ip;
+      const ip = getClientIP(req);
       const referer = req.get('referer') || '';
-      const country = await getIPInfo(ip);
+      const ipInfo = await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'session_limit_reached',
         timestamp: new Date(),
         ip,
-        country,
-        referer
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
       });
       return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
     }
@@ -243,7 +254,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       createdAt: now,
       lastActivity: now,
       expiresAt: new Date(now.getTime() + sessionDurationMinutes * 60000),
-      ip: req.ip,
+      ip,
       userAgent: req.headers['user-agent']
     });
 
@@ -319,11 +330,15 @@ router.get('/logout', async (req, res) => {
       });
 
       // Log logout
+      const ip = getClientIP(req);
+      const ipInfo = await getIPInfo(ip);
       await req.db.collection('access_logs').insertOne({
         email,
         action: 'logout',
         timestamp: new Date(),
-        ip: req.ip
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        ipInfo
       });
     } catch (error) {
       console.error('❌ Error during logout:', error);

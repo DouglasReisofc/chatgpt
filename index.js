@@ -10,6 +10,7 @@ const session = require('express-session');
 const expressLayouts = require('express-ejs-layouts');
 
 const app = express();
+app.set('trust proxy', true);
 const port = process.env.PORT || 8000;
 
 // View engine setup
