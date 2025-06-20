@@ -163,26 +163,33 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
       return res.status(403).json({ error: 'Email not authorized. Contact administrator.' });
     }
 
-    // Respect session limit before sending the code
-    const activeSessions = await db
-      .collection('active_sessions')
-      .countDocuments({ email });
-    const SESSION_LIMIT = userExists.maxSessions || 3;
+    const sessionLimitSetting = await db.collection('settings').findOne({ key: 'sessionLimit' });
+    const sessionLimitEnabled = !sessionLimitSetting || sessionLimitSetting.enabled !== false;
 
-    if (activeSessions >= SESSION_LIMIT) {
-      console.log('❌ Session limit reached (login request):', email);
-      await db.collection('access_logs').insertOne({
-        email,
-        action: 'session_limit_reached',
-        timestamp: new Date(),
-        ip: resolveClientIP(req),
-        country: (req.body.ipInfo && req.body.ipInfo.country) || 'Desconhecido',
-        referer: resolveReferer(req),
-        ipInfo: req.body.ipInfo || null
-      });
-      return res
-        .status(403)
-        .json({ error: 'Limite de sessões atingido. Faça logout em outro dispositivo.' });
+    if (sessionLimitEnabled) {
+      const activeSessions = await db
+        .collection('active_sessions')
+        .countDocuments({ email });
+      const SESSION_LIMIT =
+        typeof userExists.maxSessions === 'number'
+          ? userExists.maxSessions
+          : (sessionLimitSetting && sessionLimitSetting.maxSessions) || 3;
+
+      if (activeSessions >= SESSION_LIMIT) {
+        console.log('❌ Session limit reached (login request):', email);
+        await db.collection('access_logs').insertOne({
+          email,
+          action: 'session_limit_reached',
+          timestamp: new Date(),
+          ip: resolveClientIP(req),
+          country: (req.body.ipInfo && req.body.ipInfo.country) || 'Desconhecido',
+          referer: resolveReferer(req),
+          ipInfo: req.body.ipInfo || null
+        });
+        return res
+          .status(403)
+          .json({ error: 'Limite de sessões atingido. Faça logout em outro dispositivo.' });
+      }
     }
 
     // Store verification code in MongoDB
@@ -275,8 +282,9 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Create or update user record
     console.log('👤 Updating user record...');
     const user = await db.collection('users').findOne({ email });
-    const globalSettings =
-      (await db.collection('settings').findOne({ key: 'globalSessionSettings' })) || {
+    const sessionLimitSetting =
+      (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
+        enabled: true,
         maxSessions: 3,
         sessionDuration: 5
       };
@@ -284,7 +292,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     const currentMax =
       user && typeof user.maxSessions === 'number'
         ? user.maxSessions
-        : globalSettings.maxSessions;
+        : sessionLimitSetting.maxSessions;
     const newMaxSessions = Math.max(0, currentMax - 1);
 
     await db.collection('users').updateOne(
@@ -313,22 +321,23 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       ipInfo
     });
 
-    // Check if user has reached session limit
-    const activeSessions = await db.collection('active_sessions').countDocuments({ email });
-    const SESSION_LIMIT = newMaxSessions;
+    if (sessionLimitSetting.enabled !== false) {
+      const activeSessions = await db.collection('active_sessions').countDocuments({ email });
+      const SESSION_LIMIT = newMaxSessions;
 
-    if (activeSessions >= SESSION_LIMIT) {
-      console.log('❌ Session limit reached for user:', email);
-      await db.collection('access_logs').insertOne({
-        email,
-        action: 'session_limit_reached',
-        timestamp: new Date(),
-        ip,
-        country: ipInfo.country || 'Desconhecido',
-        referer,
-        ipInfo
-      });
-      return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
+      if (activeSessions >= SESSION_LIMIT) {
+        console.log('❌ Session limit reached for user:', email);
+        await db.collection('access_logs').insertOne({
+          email,
+          action: 'session_limit_reached',
+          timestamp: new Date(),
+          ip,
+          country: ipInfo.country || 'Desconhecido',
+          referer,
+          ipInfo
+        });
+        return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
+      }
     }
 
     // Load code limit setting
@@ -349,17 +358,19 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     const sessionDurationMinutes =
       user && typeof user.sessionDuration === 'number'
         ? user.sessionDuration
-        : globalSettings.sessionDuration;
+        : sessionLimitSetting.sessionDuration;
     const now = new Date();
     const sessionData = {
       email,
       sessionId,
       createdAt: now,
       lastActivity: now,
-      expiresAt: new Date(now.getTime() + sessionDurationMinutes * 60000),
       ip,
       userAgent: req.headers['user-agent']
     };
+    if (sessionLimitSetting.enabled !== false) {
+      sessionData.expiresAt = new Date(now.getTime() + sessionDurationMinutes * 60000);
+    }
     if (codeLimitEnabled) {
       sessionData.codesRemaining = codeLimitValue;
     }
@@ -473,6 +484,7 @@ router.use(async (req, res, next) => {
 
       const limitSetting = await req.db.collection('settings').findOne({ key: 'codeLimitEnabled' });
       const codeLimitEnabled = !limitSetting || limitSetting.enabled !== false;
+      const sessionLimitSetting = await req.db.collection('settings').findOne({ key: 'sessionLimit' });
 
       if (!sessionRecord) {
         console.log('❌ Invalid session detected:', email);
@@ -480,11 +492,13 @@ router.use(async (req, res, next) => {
         return res.redirect('/?error=session_expired');
       }
 
-      if (sessionRecord.expiresAt && new Date() > sessionRecord.expiresAt) {
-        await req.db.collection('active_sessions').deleteOne({ email, sessionId });
-        console.log('⏰ Session expired for:', email);
-        req.session.destroy();
-        return res.redirect('/?error=session_expired');
+      if (sessionLimitSetting && sessionLimitSetting.enabled !== false) {
+        if (sessionRecord.expiresAt && new Date() > sessionRecord.expiresAt) {
+          await req.db.collection('active_sessions').deleteOne({ email, sessionId });
+          console.log('⏰ Session expired for:', email);
+          req.session.destroy();
+          return res.redirect('/?error=session_expired');
+        }
       }
 
       if (codeLimitEnabled && typeof sessionRecord.codesRemaining === 'number') {

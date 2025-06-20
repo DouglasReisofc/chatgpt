@@ -68,18 +68,19 @@ async function initializeDatabase() {
             console.log('✅ Admin user already exists');
         }
 
-        // Create default global settings
-        const globalSettingsExists = await db.collection('settings').findOne({ key: 'globalSessionSettings' });
-        if (!globalSettingsExists) {
+        // Create default session limit settings
+        const sessionLimitExists = await db.collection('settings').findOne({ key: 'sessionLimit' });
+        if (!sessionLimitExists) {
             await db.collection('settings').insertOne({
-                key: 'globalSessionSettings',
+                key: 'sessionLimit',
+                enabled: true,
                 maxSessions: 3,
                 sessionDuration: 5,
                 createdAt: new Date()
             });
-            console.log('✅ Default global session settings created');
+            console.log('✅ Default session limit created');
         } else {
-            console.log('✅ Global session settings already exist');
+            console.log('✅ Session limit already exists');
         }
 
         // Create default code limit setting

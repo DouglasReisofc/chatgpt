@@ -17,34 +17,84 @@
     </div>
 </div>
 
+<div class="card settings-card">
+    <div class="card-body">
+        <h4 class="card-title mb-4">Limite de Sessões</h4>
+        <form id="sessionLimitForm">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="sessionLimitEnabled" <%= sessionLimit.enabled ? 'checked' : '' %>>
+                <label class="form-check-label" for="sessionLimitEnabled">Ativar Limite de Sessões</label>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="sessionMax" class="form-label">Limite de Sessões Padrão</label>
+                    <input type="number" id="sessionMax" class="form-control" min="1" value="<%= sessionLimit.maxSessions %>">
+                </div>
+                <div class="col-md-6">
+                    <label for="sessionDuration" class="form-label">Duração da Sessão (minutos)</label>
+                    <input type="number" id="sessionDuration" class="form-control" min="1" value="<%= sessionLimit.sessionDuration %>">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+        <div id="sessionLimitMessage" class="mt-3"></div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('codeLimitForm');
-        const enabledInput = document.getElementById('codeLimitEnabled');
-        const limitInput = document.getElementById('codeLimitValue');
+        const codeForm = document.getElementById('codeLimitForm');
+        const codeEnabled = document.getElementById('codeLimitEnabled');
+        const codeValue = document.getElementById('codeLimitValue');
 
-        form.addEventListener('submit', async function(e) {
+        const sessionForm = document.getElementById('sessionLimitForm');
+        const sessionEnabled = document.getElementById('sessionLimitEnabled');
+        const sessionMax = document.getElementById('sessionMax');
+        const sessionDuration = document.getElementById('sessionDuration');
+
+        codeForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            const enabled = enabledInput.checked;
-            const limit = parseInt(limitInput.value);
+            const enabled = codeEnabled.checked;
+            const limit = parseInt(codeValue.value);
             try {
-                const response = await fetch('/admin/settings/code-limit', {
+                const res = await fetch('/admin/settings/code-limit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enabled, limit })
                 });
-                if (response.ok) {
-                    show('Configuração atualizada', 'success');
+                if (res.ok) {
+                    show('codeLimitMessage', 'Configuração atualizada', 'success');
                 } else {
-                    show('Erro ao salvar configuração', 'danger');
+                    show('codeLimitMessage', 'Erro ao salvar configuração', 'danger');
                 }
-            } catch (error) {
-                show('Erro ao salvar configuração', 'danger');
+            } catch (err) {
+                show('codeLimitMessage', 'Erro ao salvar configuração', 'danger');
             }
         });
 
-        function show(msg, type) {
-            const el = document.getElementById('codeLimitMessage');
+        sessionForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const enabled = sessionEnabled.checked;
+            const maxSessions = parseInt(sessionMax.value);
+            const duration = parseInt(sessionDuration.value);
+            try {
+                const res = await fetch('/admin/settings/session-limit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, maxSessions, sessionDuration: duration })
+                });
+                if (res.ok) {
+                    show('sessionLimitMessage', 'Configuração atualizada', 'success');
+                } else {
+                    show('sessionLimitMessage', 'Erro ao salvar configuração', 'danger');
+                }
+            } catch (err) {
+                show('sessionLimitMessage', 'Erro ao salvar configuração', 'danger');
+            }
+        });
+
+        function show(id, msg, type) {
+            const el = document.getElementById(id);
             el.className = `alert alert-${type} mt-3`;
             el.textContent = msg;
             setTimeout(() => el.remove(), 3000);

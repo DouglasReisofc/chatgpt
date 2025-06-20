@@ -191,17 +191,9 @@ router.get('/ip-info/:ip', requireAdmin, async (req, res) => {
 
 // Settings page
 router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
-    const db = req.db;
     try {
-        // Load global settings
-        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || {
-            maxSessions: 3,
-            sessionDuration: 5
-        };
-
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
-            globalSettings,
             page: 'settings'
         });
     } catch (error) {
@@ -215,9 +207,11 @@ router.get('/code-settings', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         const codeLimit = await db.collection('settings').findOne({ key: 'codeLimitEnabled' }) || { enabled: true, limit: 5 };
+        const sessionLimit = await db.collection('settings').findOne({ key: 'sessionLimit' }) || { enabled: true, maxSessions: 3, sessionDuration: 5 };
         res.render('admin/code_settings', {
             title: 'Limite de Acesso',
             codeLimit,
+            sessionLimit,
             page: 'code-settings'
         });
     } catch (error) {
@@ -227,18 +221,21 @@ router.get('/code-settings', requireAdmin, adminLayout, async (req, res) => {
 });
 
 // Save global session settings
-router.post('/settings/global', requireAdmin, async (req, res) => {
-    const { maxSessions, sessionDuration, applyToAll } = req.body;
+router.post('/settings/session-limit', requireAdmin, async (req, res) => {
+    const { enabled, maxSessions, sessionDuration, applyToAll } = req.body;
     const db = req.db;
 
-    if (typeof maxSessions !== 'number' || typeof sessionDuration !== 'number') {
+    if (
+        typeof maxSessions !== 'number' ||
+        typeof sessionDuration !== 'number'
+    ) {
         return res.status(400).json({ error: 'Invalid input types' });
     }
 
     try {
         await db.collection('settings').updateOne(
-            { key: 'globalSessionSettings' },
-            { $set: { maxSessions, sessionDuration } },
+            { key: 'sessionLimit' },
+            { $set: { enabled: !!enabled, maxSessions, sessionDuration } },
             { upsert: true }
         );
 
@@ -248,8 +245,8 @@ router.post('/settings/global', requireAdmin, async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        console.error('Error saving global settings:', error);
-        res.status(500).json({ error: 'Failed to save global settings' });
+        console.error('Error saving session limit:', error);
+        res.status(500).json({ error: 'Failed to save session limit' });
     }
 });
 
@@ -361,7 +358,7 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
             .sort({ lastLogin: -1 })
             .toArray();
 
-        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || { maxSessions: 3, sessionDuration: 5 };
+        const globalSettings = await db.collection('settings').findOne({ key: 'sessionLimit' }) || { enabled: true, maxSessions: 3, sessionDuration: 5 };
 
         res.render('admin/users', {
             title: 'Manage Users',
@@ -455,7 +452,8 @@ router.post('/users/:email/reset-session', requireAdmin, async (req, res) => {
         await db.collection('verification_codes').deleteMany({ email });
 
         // Restore the user's session limits to the global defaults
-        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || {
+        const globalSettings = await db.collection('settings').findOne({ key: 'sessionLimit' }) || {
+            enabled: true,
             maxSessions: 3,
             sessionDuration: 5
         };
