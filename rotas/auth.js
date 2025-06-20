@@ -122,14 +122,19 @@ const checkBlockedIP = async (req, res, next) => {
 };
 
 // Routes
-router.get('/', checkBlockedIP, (req, res) => {
+router.get('/', checkBlockedIP, async (req, res) => {
   if (req.session.user) {
     return res.redirect('/codes');
   }
 
+  const db = req.db;
+  const messages =
+    (await db.collection('settings').findOne({ key: 'messages' })) || {};
+
   let errorMessage = null;
   if (req.query.error === 'session_expired') {
-    errorMessage = 'Sessão expirada. Faça login novamente.';
+    errorMessage =
+      messages.sessionExpired || 'Sessão expirada. Faça login novamente.';
   }
 
   res.render('login', {
@@ -170,6 +175,7 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
     }
 
     const sessionLimitSetting = await db.collection('settings').findOne({ key: 'sessionLimit' });
+    const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
     const limitEnabled =
       !sessionLimitSetting || sessionLimitSetting.limitEnabled !== false;
 
@@ -195,7 +201,7 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
         });
         return res
           .status(403)
-          .json({ error: 'Limite de sessões atingido. Faça logout em outro dispositivo.' });
+          .json({ error: messages.sessionLimitReached || 'Limite de sessões atingido. Faça logout em outro dispositivo.' });
       }
     }
 
@@ -268,6 +274,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     const verificationRecord = await db.collection('verification_codes').findOne({ email, code });
     console.log('📝 Verification record found:', verificationRecord ? 'Yes' : 'No');
 
+    const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
     if (!verificationRecord) {
       console.log('❌ Invalid verification code');
       await db.collection('access_logs').insertOne({
@@ -279,7 +286,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         referer,
         ipInfo
       });
-      return res.status(401).json({ error: 'Invalid code' });
+      return res.status(401).json({ error: messages.invalidCode || 'Invalid code' });
     }
 
     // Remove used verification code
@@ -343,7 +350,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
           referer,
           ipInfo
         });
-        return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
+        return res.status(403).json({ error: messages.sessionLimitReached || 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
       }
     }
 

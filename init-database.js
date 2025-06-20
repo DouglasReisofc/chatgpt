@@ -86,6 +86,24 @@ async function initializeDatabase() {
             console.log('✅ Session limit already exists');
         }
 
+        // Create default messages settings
+        const messagesExists = await db
+            .collection('settings')
+            .findOne({ key: 'messages' });
+        if (!messagesExists) {
+            await db.collection('settings').insertOne({
+                key: 'messages',
+                sessionLimitReached:
+                    'Limite de sessões atingido. Faça logout em outro dispositivo.',
+                sessionExpired: 'Sessão expirada. Faça login novamente.',
+                invalidCode: 'Código inválido.',
+                createdAt: new Date()
+            });
+            console.log('✅ Default messages created');
+        } else {
+            console.log('✅ Messages already exist');
+        }
+
 
         console.log('✅ Database initialized successfully');
 

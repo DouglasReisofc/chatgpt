@@ -1,0 +1,45 @@
+<h2 class="mb-4">Mensagens do Sistema</h2>
+<div class="card settings-card">
+    <div class="card-body">
+        <form id="messagesForm">
+            <div class="mb-3">
+                <label class="form-label" for="sessionLimitReached">Limite de Sessões</label>
+                <textarea class="form-control" id="sessionLimitReached" rows="2"><%= messages.sessionLimitReached %></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="sessionExpired">Sessão Expirada</label>
+                <textarea class="form-control" id="sessionExpired" rows="2"><%= messages.sessionExpired %></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="invalidCode">Código Inválido</label>
+                <textarea class="form-control" id="invalidCode" rows="2"><%= messages.invalidCode %></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('messagesForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            sessionLimitReached: document.getElementById('sessionLimitReached').value,
+            sessionExpired: document.getElementById('sessionExpired').value,
+            invalidCode: document.getElementById('invalidCode').value
+        };
+        try {
+            const response = await fetch('/admin/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (response.ok) {
+                alert('Mensagens atualizadas com sucesso');
+            } else {
+                alert('Erro ao salvar mensagens');
+            }
+        } catch (err) {
+            alert('Erro ao salvar mensagens');
+        }
+    });
+</script>

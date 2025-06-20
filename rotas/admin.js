@@ -224,6 +224,53 @@ router.get('/code-settings', requireAdmin, adminLayout, async (req, res) => {
     }
 });
 
+// System messages settings page
+router.get('/messages', requireAdmin, adminLayout, async (req, res) => {
+    const db = req.db;
+    try {
+        const messages =
+            (await db.collection('settings').findOne({ key: 'messages' })) || {
+                sessionLimitReached:
+                    'Limite de sessões atingido. Faça logout em outro dispositivo.',
+                sessionExpired: 'Sessão expirada. Faça login novamente.',
+                invalidCode: 'Código inválido.'
+            };
+        res.render('admin/messages', {
+            title: 'Mensagens do Sistema',
+            messages,
+            page: 'messages'
+        });
+    } catch (error) {
+        console.error('Messages settings error:', error);
+        res.status(500).send('Error loading messages');
+    }
+});
+
+// Update system messages
+router.post('/messages', requireAdmin, async (req, res) => {
+    const { sessionLimitReached, sessionExpired, invalidCode } = req.body;
+    const db = req.db;
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'messages' },
+            {
+                $set: {
+                    sessionLimitReached,
+                    sessionExpired,
+                    invalidCode
+                }
+            },
+            { upsert: true }
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving messages:', error);
+        res.status(500).json({ error: 'Failed to save messages' });
+    }
+});
+
 // Save global session settings
 router.post('/settings/session-limit', requireAdmin, async (req, res) => {
     const {
