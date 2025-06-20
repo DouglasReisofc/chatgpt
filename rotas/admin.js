@@ -199,6 +199,9 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             sessionDuration: 5
         };
 
+        // Load code limit setting
+        const codeLimit = await db.collection('settings').findOne({ key: 'codeLimitEnabled' }) || { enabled: true };
+
         // Load blocked IPs
         const blockedIps = await db.collection('blocked_ips').find().sort({ blockedAt: -1 }).toArray();
 
@@ -206,6 +209,7 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             title: 'Configurações do Sistema',
             globalSettings,
             blockedIps,
+            codeLimit,
             page: 'settings'
         });
     } catch (error) {
@@ -238,6 +242,24 @@ router.post('/settings/global', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error saving global settings:', error);
         res.status(500).json({ error: 'Failed to save global settings' });
+    }
+});
+
+// Toggle code page access limit
+router.post('/settings/code-limit', requireAdmin, async (req, res) => {
+    const db = req.db;
+    const enabled = !!req.body.enabled;
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'codeLimitEnabled' },
+            { $set: { enabled } },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating code limit setting:', error);
+        res.status(500).json({ error: 'Failed to update code limit setting' });
     }
 });
 

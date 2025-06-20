@@ -331,10 +331,18 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
     }
 
+    // Load code limit setting
+    const codeLimitSetting = await db.collection('settings').findOne({ key: 'codeLimitEnabled' });
+    const codeLimitEnabled = !codeLimitSetting || codeLimitSetting.enabled !== false;
+
     // Set user session
     console.log('🔐 Setting user session...');
     const sessionId = require('crypto').randomBytes(32).toString('hex');
-    req.session.user = { email, sessionId, codesRemaining: CODE_PAGE_LIMIT };
+    if (codeLimitEnabled) {
+      req.session.user = { email, sessionId, codesRemaining: CODE_PAGE_LIMIT };
+    } else {
+      req.session.user = { email, sessionId };
+    }
 
     // Store session in database
     const sessionDurationMinutes =
@@ -342,16 +350,19 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         ? user.sessionDuration
         : globalSettings.sessionDuration;
     const now = new Date();
-    await db.collection('active_sessions').insertOne({
+    const sessionData = {
       email,
       sessionId,
       createdAt: now,
       lastActivity: now,
       expiresAt: new Date(now.getTime() + sessionDurationMinutes * 60000),
       ip,
-      userAgent: req.headers['user-agent'],
-      codesRemaining: CODE_PAGE_LIMIT
-    });
+      userAgent: req.headers['user-agent']
+    };
+    if (codeLimitEnabled) {
+      sessionData.codesRemaining = CODE_PAGE_LIMIT;
+    }
+    await db.collection('active_sessions').insertOne(sessionData);
 
     console.log('✅ Verification successful');
     res.json({ token: 'verified' });
@@ -371,23 +382,34 @@ router.get('/codes', async (req, res) => {
     const db = req.db;
     console.log('📊 Loading codes page for user:', req.session.user.email);
 
+    const limitSetting = await db.collection('settings').findOne({ key: 'codeLimitEnabled' });
+    const codeLimitEnabled = !limitSetting || limitSetting.enabled !== false;
+
     const { email, sessionId } = req.session.user;
     let sessionRecord = await db.collection('active_sessions').findOne({ email, sessionId });
-    let remaining = sessionRecord ? sessionRecord.codesRemaining : CODE_PAGE_LIMIT;
-    if (remaining === undefined || remaining === null) {
-      remaining = CODE_PAGE_LIMIT;
-    }
 
-    if (remaining <= 0) {
-      return res.render('limit', { title: 'Acesso Bloqueado' });
-    }
+    if (codeLimitEnabled) {
+      let remaining = sessionRecord ? sessionRecord.codesRemaining : CODE_PAGE_LIMIT;
+      if (remaining === undefined || remaining === null) {
+        remaining = CODE_PAGE_LIMIT;
+      }
 
-    remaining -= 1;
-    req.session.user.codesRemaining = remaining;
-    await db.collection('active_sessions').updateOne(
-      { email, sessionId },
-      { $set: { codesRemaining: remaining, lastActivity: new Date() } }
-    );
+      if (remaining <= 0) {
+        return res.render('limit', { title: 'Acesso Bloqueado' });
+      }
+
+      remaining -= 1;
+      req.session.user.codesRemaining = remaining;
+      await db.collection('active_sessions').updateOne(
+        { email, sessionId },
+        { $set: { codesRemaining: remaining, lastActivity: new Date() } }
+      );
+    } else {
+      await db.collection('active_sessions').updateOne(
+        { email, sessionId },
+        { $set: { lastActivity: new Date() } }
+      );
+    }
 
     // Sample codes data (in a real implementation, this would come from email parsing)
     const codes = [
@@ -447,6 +469,9 @@ router.use(async (req, res, next) => {
     try {
       const sessionRecord = await req.db.collection('active_sessions').findOne({ email, sessionId });
 
+      const limitSetting = await req.db.collection('settings').findOne({ key: 'codeLimitEnabled' });
+      const codeLimitEnabled = !limitSetting || limitSetting.enabled !== false;
+
       if (!sessionRecord) {
         console.log('❌ Invalid session detected:', email);
         req.session.destroy();
@@ -460,7 +485,7 @@ router.use(async (req, res, next) => {
         return res.redirect('/?error=session_expired');
       }
 
-      if (typeof sessionRecord.codesRemaining === 'number') {
+      if (codeLimitEnabled && typeof sessionRecord.codesRemaining === 'number') {
         req.session.user.codesRemaining = sessionRecord.codesRemaining;
       }
 
