@@ -57,6 +57,28 @@
 </div>
 
 <div class="table-container">
+    <h4 class="mb-3">Top Recarregadores</h4>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Recargas</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% topFetchers.forEach(f => { %>
+                <tr>
+                    <td><%= f._id %></td>
+                    <td><%= f.count %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="table-container">
     <h4 class="mb-3">Logs Recentes</h4>
     <div class="table-responsive">
         <table class="table">

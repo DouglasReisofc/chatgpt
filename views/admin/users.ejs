@@ -25,6 +25,7 @@
                     <th>Status</th>
                     <th>Último Login</th>
                     <th>Acessos</th>
+                    <th>Recargas</th>
                     <th>Limite Sessões</th>
                     <th>Duração Sessão (min)</th>
                     <th>Ações</th>
@@ -32,7 +33,7 @@
             </thead>
             <tbody>
                 <% users.forEach(user => { %>
-                <tr data-email="<%= user.email %>" data-access="<%= user.accessCount %>" data-blocked="<%= user.blockedCount %>" data-max="<%= user.maxSessions %>">
+                <tr data-email="<%= user.email %>" data-access="<%= user.accessCount %>" data-fetch="<%= user.fetchCount %>" data-blocked="<%= user.blockedCount %>" data-max="<%= user.maxSessions %>">
                     <td><%= user.email %></td>
                     <td>
                         <% if(user.verified) { %>
@@ -43,6 +44,7 @@
                     </td>
                     <td><%= user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Nunca' %></td>
                     <td><%= user.accessCount %></td>
+                    <td><%= user.fetchCount %></td>
                     <td>
                         <input type="number" class="form-control form-control-sm max-sessions" value="<%= typeof user.maxSessions === 'number' ? user.maxSessions : globalSettings.maxSessions %>" min="0" style="width: 80px;">
                     </td>
@@ -212,7 +214,7 @@
 
             if (filter === 'most') {
                 rows
-                    .sort((a, b) => parseInt(b.dataset.access, 10) - parseInt(a.dataset.access, 10))
+                    .sort((a, b) => parseInt(b.dataset.fetch, 10) - parseInt(a.dataset.fetch, 10))
                     .forEach(r => r.parentNode.appendChild(r));
             }
         }

@@ -34,6 +34,28 @@
     </div>
 </div>
 
+<div class="card settings-card mt-4">
+    <div class="card-body">
+        <h4 class="card-title mb-4">Branding</h4>
+        <form id="brandingForm">
+            <div class="mb-3">
+                <label for="panelLogoUrl" class="form-label">Logo do Painel (URL)</label>
+                <input type="text" id="panelLogoUrl" class="form-control" value="<%= branding.panelLogoUrl %>">
+            </div>
+            <div class="mb-3">
+                <label for="cardLogoUrl" class="form-label">Logo do Card (URL)</label>
+                <input type="text" id="cardLogoUrl" class="form-control" value="<%= branding.cardLogoUrl %>">
+            </div>
+            <div class="mb-3">
+                <label for="siteHref" class="form-label">Link da Página</label>
+                <input type="text" id="siteHref" class="form-control" value="<%= branding.href %>">
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+        <div id="brandingMessage" class="mt-3"></div>
+    </div>
+</div>
+
 <!-- Reset Logs Confirmation Modal -->
 <div class="modal fade" id="resetLogsModal" tabindex="-1">
     <div class="modal-dialog">
@@ -61,6 +83,10 @@
         const resetSessionsBtn = document.getElementById('resetSessionsBtn');
         const codesLimitForm = document.getElementById('codesLimitForm');
         const codesLimitInput = document.getElementById('codesLimit');
+        const brandingForm = document.getElementById('brandingForm');
+        const panelLogoInput = document.getElementById('panelLogoUrl');
+        const cardLogoInput = document.getElementById('cardLogoUrl');
+        const hrefInput = document.getElementById('siteHref');
 
         codesLimitForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -78,6 +104,28 @@
                 }
             } catch (err) {
                 showMessage('codesLimitMessage', 'Erro ao salvar limite', 'danger');
+            }
+        });
+
+        brandingForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            try {
+                const res = await fetch('/admin/settings/branding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        panelLogoUrl: panelLogoInput.value,
+                        cardLogoUrl: cardLogoInput.value,
+                        href: hrefInput.value
+                    })
+                });
+                if (res.ok) {
+                    showMessage('brandingMessage', 'Branding salvo', 'success');
+                } else {
+                    showMessage('brandingMessage', 'Erro ao salvar', 'danger');
+                }
+            } catch (err) {
+                showMessage('brandingMessage', 'Erro ao salvar', 'danger');
             }
         });
 

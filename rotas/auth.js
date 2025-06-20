@@ -132,16 +132,31 @@ router.get('/', checkBlockedIP, async (req, res) => {
 
   if (req.isIPBlocked) {
     errorMessage = req.blockedMessage;
+    const branding =
+      (await db.collection('settings').findOne({ key: 'branding' })) || {
+        panelLogoUrl: '',
+        cardLogoUrl: '',
+        href: 'https://www.contasvip.com.br/'
+      };
     return res.status(403).render('login', {
       title: 'Login',
       user: null,
+      branding,
       errorMessage
     });
   }
 
+  const branding =
+    (await db.collection('settings').findOne({ key: 'branding' })) || {
+      panelLogoUrl: '',
+      cardLogoUrl: '',
+      href: 'https://www.contasvip.com.br/'
+    };
+
   res.render('login', {
     title: 'Login',
     user: null,
+    branding,
     errorMessage
   });
 });
@@ -462,12 +477,34 @@ router.get('/codes', async (req, res) => {
       .limit(limit)
       .toArray();
 
+    if (codes.length > 0) {
+      const ip = resolveClientIP(req);
+      const ipInfo = await getIPInfo(ip);
+      await db.collection('access_logs').insertOne({
+        email,
+        action: 'Códigos recarregados',
+        timestamp: new Date(),
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        referer: resolveReferer(req),
+        ipInfo
+      });
+    }
+
     console.log('🔢 Codes available:', codes.length);
+
+    const branding =
+      (await db.collection('settings').findOne({ key: 'branding' })) || {
+        panelLogoUrl: '',
+        cardLogoUrl: '',
+        href: 'https://www.contasvip.com.br/'
+      };
 
     res.render('codes', {
       title: 'ChatGPT Codes',
       codes,
       user: req.session.user,
+      branding,
       expiresAt:
         sessionRecord && sessionRecord.expiresAt
           ? sessionRecord.expiresAt.toISOString()

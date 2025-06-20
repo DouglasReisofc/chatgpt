@@ -3,6 +3,11 @@
         <div class="col-md-6 col-lg-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white text-center py-4">
+                    <% if (branding.panelLogoUrl) { %>
+                        <a href="<%= branding.href %>">
+                            <img src="<%= branding.panelLogoUrl %>" alt="Logo" style="height:60px;border-radius:50%;" class="mb-2">
+                        </a>
+                    <% } %>
                     <h4 class="mb-0">ChatGPT Code System</h4>
                     <p class="small mb-0">Sistema de Códigos</p>
                 </div>

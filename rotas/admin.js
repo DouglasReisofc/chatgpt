@@ -12,9 +12,17 @@ const requireAdmin = async (req, res, next) => {
     next();
 };
 
-// Use custom admin layout for dashboard pages
-const adminLayout = (req, res, next) => {
+// Use custom admin layout and load branding for dashboard pages
+const adminLayout = async (req, res, next) => {
     res.locals.layout = 'layouts/admin/main';
+    try {
+        const branding =
+            (await req.db.collection('settings').findOne({ key: 'branding' })) ||
+            { panelLogoUrl: '', cardLogoUrl: '', href: 'https://www.contasvip.com.br/' };
+        res.locals.branding = branding;
+    } catch (err) {
+        res.locals.branding = { panelLogoUrl: '', cardLogoUrl: '', href: 'https://www.contasvip.com.br/' };
+    }
     next();
 };
 
@@ -121,11 +129,21 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             .limit(10)
             .toArray();
 
+        const topFetchers = await db.collection('access_logs')
+            .aggregate([
+                { $match: { action: 'Códigos recarregados' } },
+                { $group: { _id: '$email', count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 5 }
+            ])
+            .toArray();
+
         res.render('admin/dashboard', {
             title: 'Admin Dashboard',
             stats,
             recentUsers,
             recentLogs,
+            topFetchers,
             page: 'dashboard'
         });
     } catch (error) {
@@ -258,9 +276,13 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
         const codeLimitSetting =
             (await db.collection('settings').findOne({ key: 'codeDisplayLimit' })) ||
             { limit: 5 };
+        const branding =
+            (await db.collection('settings').findOne({ key: 'branding' })) ||
+            { panelLogoUrl: '', cardLogoUrl: '', href: 'https://www.contasvip.com.br/' };
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
             codeLimit: codeLimitSetting.limit || 5,
+            branding,
             page: 'settings'
         });
     } catch (error) {
@@ -598,6 +620,24 @@ router.post('/settings/code-display-limit', requireAdmin, async (req, res) => {
     }
 });
 
+// Update branding settings (logos and href)
+router.post('/settings/branding', requireAdmin, async (req, res) => {
+    const { panelLogoUrl, cardLogoUrl, href } = req.body;
+    const db = req.db;
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'branding' },
+            { $set: { panelLogoUrl, cardLogoUrl, href } },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving branding:', error);
+        res.status(500).json({ error: 'Failed to save branding' });
+    }
+});
+
 // List all users
 router.get('/users', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
@@ -630,18 +670,28 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
             ])
             .toArray();
 
+        const fetchCounts = await db
+            .collection('access_logs')
+            .aggregate([
+                { $match: { action: 'Códigos recarregados' } },
+                { $group: { _id: '$email', count: { $sum: 1 } } }
+            ])
+            .toArray();
+
         const accessMap = Object.fromEntries(
             successCounts.map(c => [c._id, c.count])
         );
         const blockMap = Object.fromEntries(blockCounts.map(c => [c._id, c.count]));
+        const fetchMap = Object.fromEntries(fetchCounts.map(c => [c._id, c.count]));
 
         const decorated = users.map(u => ({
             ...u,
             accessCount: accessMap[u.email] || 0,
-            blockedCount: blockMap[u.email] || 0
+            blockedCount: blockMap[u.email] || 0,
+            fetchCount: fetchMap[u.email] || 0
         }));
 
-        decorated.sort((a, b) => b.accessCount - a.accessCount);
+        decorated.sort((a, b) => b.fetchCount - a.fetchCount || b.accessCount - a.accessCount);
 
         const globalSettings =
             (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
