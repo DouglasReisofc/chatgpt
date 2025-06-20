@@ -8,11 +8,18 @@ const net = require('net');
 
 // Helper to create SMTP transporter from stored settings
 async function getTransporter(db) {
+  const defaults = {
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    user: 'contactgestorvip@gmail.com',
+    pass: 'aoqmdezazknbbpg'
+  };
   const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
-  const smtp = config.smtp || {};
+  const smtp = Object.assign({}, defaults, config.smtp);
   return nodemailer.createTransport({
-    host: smtp.host || 'localhost',
-    port: smtp.port || 25,
+    host: smtp.host,
+    port: smtp.port,
     secure: !!smtp.secure,
     auth: smtp.user ? { user: smtp.user, pass: smtp.pass } : undefined
   });
@@ -109,14 +116,21 @@ async function getIPInfo(ip) {
 
 // Retrieve verification codes from IMAP using stored configuration
 async function fetchImapCodes(db) {
+  const defaults = {
+    host: 'imap.uhserver.com',
+    port: 993,
+    tls: true,
+    user: 'financeiro@clubevip.net',
+    pass: 'CYRSG6vT86ZVfe'
+  };
   const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
-  const imapCfg = config.imap || {};
+  const imapCfg = Object.assign({}, defaults, config.imap);
   const imapConfig = {
     imap: {
       user: imapCfg.user,
       password: imapCfg.pass,
       host: imapCfg.host,
-      port: imapCfg.port || 993,
+      port: imapCfg.port,
       tls: !!imapCfg.tls,
       tlsOptions: { rejectUnauthorized: false },
       authTimeout: 10000,
@@ -275,9 +289,13 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
 
     console.log('📤 Sending email...');
     const transporter = await getTransporter(db);
-    const smtpConf = ((await db.collection('settings').findOne({ key: 'emailConfig' })) || {}).smtp || {};
+    const smtpStored = ((await db.collection('settings').findOne({ key: 'emailConfig' })) || {}).smtp || {};
+    const smtpConf = Object.assign(
+      { user: 'contactgestorvip@gmail.com' },
+      smtpStored
+    );
     const emailResult = await transporter.sendMail({
-      from: `"ChatGPT Code System" <${smtpConf.user || 'no-reply@example.com'}>`,
+      from: `"ChatGPT Code System" <${smtpConf.user}>`,
       to: email,
       subject: 'Seu Código de Acesso - ChatGPT',
       html: `

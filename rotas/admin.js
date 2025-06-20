@@ -339,11 +339,28 @@ router.post('/messages', requireAdmin, async (req, res) => {
 // Email configuration page
 router.get('/email-settings', requireAdmin, adminLayout, async (req, res) => {
     try {
+        const defaults = {
+            smtp: {
+                host: 'smtp.gmail.com',
+                port: 465,
+                secure: true,
+                user: 'contactgestorvip@gmail.com',
+                pass: 'aoqmdezazknbbpg'
+            },
+            imap: {
+                host: 'imap.uhserver.com',
+                port: 993,
+                tls: true,
+                user: 'financeiro@clubevip.net',
+                pass: 'CYRSG6vT86ZVfe'
+            }
+        };
         const config =
-            (await req.db.collection('settings').findOne({ key: 'emailConfig' })) || {
-                smtp: {},
-                imap: {}
-            };
+            (await req.db.collection('settings').findOne({ key: 'emailConfig' })) ||
+            defaults;
+        // Merge defaults with stored values to ensure all fields exist
+        config.smtp = Object.assign({}, defaults.smtp, config.smtp);
+        config.imap = Object.assign({}, defaults.imap, config.imap);
         res.render('admin/email_settings', {
             title: 'Configurações de Email',
             config,
@@ -370,23 +387,45 @@ router.post('/email-settings', requireAdmin, async (req, res) => {
         imapPass
     } = req.body;
     try {
+        const defaults = {
+            smtp: {
+                host: 'smtp.gmail.com',
+                port: 465,
+                secure: true,
+                user: 'contactgestorvip@gmail.com',
+                pass: 'aoqmdezazknbbpg'
+            },
+            imap: {
+                host: 'imap.uhserver.com',
+                port: 993,
+                tls: true,
+                user: 'financeiro@clubevip.net',
+                pass: 'CYRSG6vT86ZVfe'
+            }
+        };
         await req.db.collection('settings').updateOne(
             { key: 'emailConfig' },
             {
                 $set: {
                     smtp: {
-                        host: smtpHost,
-                        port: Number(smtpPort) || 0,
-                        secure: !!smtpSecure,
-                        user: smtpUser,
-                        pass: smtpPass
+                        host: smtpHost || defaults.smtp.host,
+                        port: Number(smtpPort) || defaults.smtp.port,
+                        secure:
+                            typeof smtpSecure === 'undefined'
+                                ? defaults.smtp.secure
+                                : !!smtpSecure,
+                        user: smtpUser || defaults.smtp.user,
+                        pass: smtpPass || defaults.smtp.pass
                     },
                     imap: {
-                        host: imapHost,
-                        port: Number(imapPort) || 0,
-                        tls: !!imapTls,
-                        user: imapUser,
-                        pass: imapPass
+                        host: imapHost || defaults.imap.host,
+                        port: Number(imapPort) || defaults.imap.port,
+                        tls:
+                            typeof imapTls === 'undefined'
+                                ? defaults.imap.tls
+                                : !!imapTls,
+                        user: imapUser || defaults.imap.user,
+                        pass: imapPass || defaults.imap.pass
                     }
                 }
             },

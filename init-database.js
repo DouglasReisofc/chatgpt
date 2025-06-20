@@ -109,18 +109,18 @@ async function initializeDatabase() {
                 $setOnInsert: { createdAt: new Date() },
                 $set: {
                     smtp: {
-                        host: 'smtp.example.com',
+                        host: 'smtp.gmail.com',
                         port: 465,
                         secure: true,
-                        user: 'user@example.com',
-                        pass: 'password'
+                        user: 'contactgestorvip@gmail.com',
+                        pass: 'aoqmdezazknbbpg'
                     },
                     imap: {
-                        host: 'imap.example.com',
+                        host: 'imap.uhserver.com',
                         port: 993,
                         tls: true,
-                        user: 'user@example.com',
-                        pass: 'password'
+                        user: 'financeiro@clubevip.net',
+                        pass: 'CYRSG6vT86ZVfe'
                     }
                 }
             },

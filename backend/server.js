@@ -110,7 +110,7 @@ const transporter = nodemailer.createTransport({
   secure: true, // SSL
   auth: {
     user: 'contactgestorvip@gmail.com',
-    pass: 'aoqmdezazknbbpgf'
+    pass: 'aoqmdezazknbbpg'
   }
 });
 
