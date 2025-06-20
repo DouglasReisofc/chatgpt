@@ -14,6 +14,10 @@
                 <label class="form-label" for="invalidCode">Código Inválido</label>
                 <textarea class="form-control" id="invalidCode" rows="2"><%= messages.invalidCode %></textarea>
             </div>
+            <div class="mb-3">
+                <label class="form-label" for="ipBlocked">IP Bloqueado</label>
+                <textarea class="form-control" id="ipBlocked" rows="2"><%= messages.ipBlocked %></textarea>
+            </div>
             <button type="submit" class="btn btn-primary">Salvar</button>
         </form>
     </div>
@@ -25,7 +29,8 @@
         const data = {
             sessionLimitReached: document.getElementById('sessionLimitReached').value,
             sessionExpired: document.getElementById('sessionExpired').value,
-            invalidCode: document.getElementById('invalidCode').value
+            invalidCode: document.getElementById('invalidCode').value,
+            ipBlocked: document.getElementById('ipBlocked').value
         };
         try {
             const response = await fetch('/admin/messages', {

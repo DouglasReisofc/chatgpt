@@ -97,6 +97,8 @@ async function initializeDatabase() {
                     'Limite de sessões atingido. Faça logout em outro dispositivo.',
                 sessionExpired: 'Sessão expirada. Faça login novamente.',
                 invalidCode: 'Código inválido.',
+                ipBlocked:
+                    'Seu IP está bloqueado. Entre em contato com o administrador.',
                 createdAt: new Date()
             });
             console.log('✅ Default messages created');

@@ -112,7 +112,9 @@ const checkBlockedIP = async (req, res, next) => {
     const ip = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip) || getClientIP(req);
     const blockedIP = await db.collection('blocked_ips').findOne({ address: ip });
     if (blockedIP) {
-      return res.status(403).json({ error: 'Seu IP está bloqueado. Entre em contato com o administrador.' });
+      const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
+      req.isIPBlocked = true;
+      req.blockedMessage = messages.ipBlocked || 'Seu IP está bloqueado. Entre em contato com o administrador.';
     }
     next();
   } catch (error) {
@@ -137,6 +139,15 @@ router.get('/', checkBlockedIP, async (req, res) => {
       messages.sessionExpired || 'Sessão expirada. Faça login novamente.';
   }
 
+  if (req.isIPBlocked) {
+    errorMessage = req.blockedMessage;
+    return res.status(403).render('login', {
+      title: 'Login',
+      user: null,
+      errorMessage
+    });
+  }
+
   res.render('login', {
     title: 'Login',
     user: null,
@@ -147,6 +158,10 @@ router.get('/', checkBlockedIP, async (req, res) => {
 router.post('/api/login', checkBlockedIP, async (req, res) => {
   const { email } = req.body;
   console.log('📧 Login attempt for email:', email);
+
+  if (req.isIPBlocked) {
+    return res.status(403).json({ error: req.blockedMessage });
+  }
 
   if (!email) {
     console.log('❌ No email provided');
@@ -245,6 +260,10 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
 router.post('/api/verify', checkBlockedIP, async (req, res) => {
   const { email, code } = req.body;
   console.log('🔍 Verification attempt:', { email, code });
+
+  if (req.isIPBlocked) {
+    return res.status(403).json({ error: req.blockedMessage });
+  }
 
   if (!email || !code) {
     console.log('❌ Missing email or code');
