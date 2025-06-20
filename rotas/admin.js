@@ -138,18 +138,31 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
 router.get('/logs', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
-        const logs = await db.collection('access_logs')
-            .find()
+        let { limit = '100', email = '', action = '' } = req.query;
+        let nLimit = parseInt(limit, 10);
+        if (isNaN(nLimit) || nLimit < 1) nLimit = 100;
+        if (nLimit > 1000) nLimit = 1000;
+
+        const query = {};
+        if (email) query.email = { $regex: email, $options: 'i' };
+        if (action) query.action = action;
+
+        const logs = await db
+            .collection('access_logs')
+            .find(query)
             .sort({ timestamp: -1 })
-            .limit(100)
+            .limit(nLimit)
             .toArray();
 
+        const actions = await db.collection('access_logs').distinct('action');
         const blockedIps = await db.collection('blocked_ips').find().toArray();
 
         res.render('admin/logs', {
             title: 'Logs de Acesso',
             logs,
             blockedIps,
+            actions,
+            filters: { email, action, limit: nLimit },
             page: 'logs'
         });
     } catch (error) {
