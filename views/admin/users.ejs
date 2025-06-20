@@ -104,8 +104,8 @@
             <div class="modal-body">
                 <form id="addUserForm">
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" required>
+                        <label for="emails" class="form-label">Emails (um por linha ou separados por vírgula)</label>
+                        <textarea id="emails" class="form-control" rows="4" placeholder="exemplo1@site.com, exemplo2@site.com" required></textarea>
                     </div>
                 </form>
             </div>
@@ -124,14 +124,14 @@
             sessionDuration: <%= globalSettings.sessionDuration %>
         };
         document.getElementById('addUserBtn').addEventListener('click', async function() {
-            const email = document.getElementById('email').value;
+            const raw = document.getElementById('emails').value;
             try {
                 const response = await fetch('/admin/users', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email })
+                    body: JSON.stringify({ emails: raw })
                 });
                 if (response.ok) {
                     location.reload();

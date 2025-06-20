@@ -341,17 +341,52 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
 
 // Add new user
 router.post('/users', requireAdmin, async (req, res) => {
-    const { email } = req.body;
     const db = req.db;
+    let { email, emails } = req.body;
+
+    // Support both single email and bulk input
+    if (!emails) {
+        emails = email;
+    }
+
+    if (typeof emails === 'string') {
+        emails = emails.split(/[\s,;\n]+/);
+    }
+
+    if (!Array.isArray(emails) || emails.length === 0) {
+        return res.status(400).json({ error: 'No emails provided' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleaned = emails
+        .map(e => String(e).trim().toLowerCase())
+        .filter(e => e && emailRegex.test(e));
+
+    if (cleaned.length === 0) {
+        return res.status(400).json({ error: 'No valid emails provided' });
+    }
 
     try {
-        await db.collection('users').insertOne({
-            email,
-            verified: true,
-            createdAt: new Date(),
-            lastLogin: null
-        });
-        res.json({ success: true });
+        const ops = cleaned.map(e => ({
+            updateOne: {
+                filter: { email: e },
+                update: {
+                    $setOnInsert: {
+                        email: e,
+                        verified: true,
+                        createdAt: new Date(),
+                        lastLogin: null
+                    }
+                },
+                upsert: true
+            }
+        }));
+
+        if (ops.length > 0) {
+            await db.collection('users').bulkWrite(ops);
+        }
+
+        res.json({ success: true, added: cleaned.length });
     } catch (error) {
         console.error('Error adding user:', error);
         res.status(500).json({ error: 'Failed to add user' });
