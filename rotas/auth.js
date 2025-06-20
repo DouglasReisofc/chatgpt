@@ -114,7 +114,9 @@ const checkBlockedIP = async (req, res, next) => {
     if (blockedIP) {
       const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
       req.isIPBlocked = true;
-      req.blockedMessage = messages.ipBlocked || 'Seu IP está bloqueado. Entre em contato com o administrador.';
+      req.blockedMessage =
+        messages.ipBlocked ||
+        'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde';
     }
     next();
   } catch (error) {

@@ -297,7 +297,7 @@ router.get('/messages', requireAdmin, adminLayout, async (req, res) => {
                 sessionExpired: 'Sessão expirada. Faça login novamente.',
                 invalidCode: 'Código inválido.',
                 ipBlocked:
-                    'Seu IP está bloqueado. Entre em contato com o administrador.'
+                    'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde'
             };
         res.render('admin/messages', {
             title: 'Mensagens do Sistema',
