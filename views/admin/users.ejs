@@ -7,6 +7,15 @@
     </div>
 </div>
 
+<div class="d-flex align-items-center mb-3">
+    <input type="text" id="userSearch" class="form-control me-2" placeholder="Buscar...">
+    <select id="userFilter" class="form-select" style="max-width: 200px;">
+        <option value="most">Mais acessos</option>
+        <option value="blocked">Bloqueados</option>
+        <option value="nolimit">Sem limite</option>
+    </select>
+</div>
+
 <div class="table-container">
     <div class="table-responsive">
         <table class="table" id="usersTable">
@@ -15,6 +24,7 @@
                     <th>Email</th>
                     <th>Status</th>
                     <th>Último Login</th>
+                    <th>Acessos</th>
                     <th>Limite Sessões</th>
                     <th>Duração Sessão (min)</th>
                     <th>Ações</th>
@@ -22,7 +32,7 @@
             </thead>
             <tbody>
                 <% users.forEach(user => { %>
-                <tr data-email="<%= user.email %>">
+                <tr data-email="<%= user.email %>" data-access="<%= user.accessCount %>" data-blocked="<%= user.blockedCount %>" data-max="<%= user.maxSessions %>">
                     <td><%= user.email %></td>
                     <td>
                         <% if(user.verified) { %>
@@ -32,6 +42,7 @@
                         <% } %>
                     </td>
                     <td><%= user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Nunca' %></td>
+                    <td><%= user.accessCount %></td>
                     <td>
                         <input type="number" class="form-control form-control-sm max-sessions" value="<%= user.maxSessions || 3 %>" min="1" style="width: 80px;">
                     </td>
@@ -172,5 +183,42 @@
                 }
             });
         });
+
+        const searchInput = document.getElementById('userSearch');
+        const filterSelect = document.getElementById('userFilter');
+
+        function applyFilters() {
+            const term = searchInput.value.toLowerCase();
+            const filter = filterSelect.value;
+            const rows = Array.from(document.querySelectorAll('#usersTable tbody tr'));
+
+            rows.forEach(r => {
+                const email = r.dataset.email.toLowerCase();
+                const access = parseInt(r.dataset.access, 10);
+                const blocked = parseInt(r.dataset.blocked, 10);
+                const max = parseInt(r.dataset.max, 10);
+                let visible = email.includes(term);
+
+                if (visible) {
+                    if (filter === 'blocked') {
+                        visible = blocked > 0;
+                    } else if (filter === 'nolimit') {
+                        visible = max <= 0 || isNaN(max);
+                    }
+                }
+
+                r.style.display = visible ? '' : 'none';
+            });
+
+            if (filter === 'most') {
+                rows
+                    .sort((a, b) => parseInt(b.dataset.access, 10) - parseInt(a.dataset.access, 10))
+                    .forEach(r => r.parentNode.appendChild(r));
+            }
+        }
+
+        searchInput.addEventListener('input', applyFilters);
+        filterSelect.addEventListener('change', applyFilters);
+        applyFilters();
     });
 </script>

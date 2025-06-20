@@ -348,10 +348,36 @@ router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
 router.get('/users', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
-        const users = await db.collection('users')
-            .find()
-            .sort({ lastLogin: -1 })
+        const users = await db.collection('users').find().toArray();
+
+        const successCounts = await db
+            .collection('access_logs')
+            .aggregate([
+                { $match: { action: 'verification_success' } },
+                { $group: { _id: '$email', count: { $sum: 1 } } }
+            ])
             .toArray();
+
+        const blockCounts = await db
+            .collection('access_logs')
+            .aggregate([
+                { $match: { action: 'session_limit_reached' } },
+                { $group: { _id: '$email', count: { $sum: 1 } } }
+            ])
+            .toArray();
+
+        const accessMap = Object.fromEntries(
+            successCounts.map(c => [c._id, c.count])
+        );
+        const blockMap = Object.fromEntries(blockCounts.map(c => [c._id, c.count]));
+
+        const decorated = users.map(u => ({
+            ...u,
+            accessCount: accessMap[u.email] || 0,
+            blockedCount: blockMap[u.email] || 0
+        }));
+
+        decorated.sort((a, b) => b.accessCount - a.accessCount);
 
         const globalSettings =
             (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
@@ -363,7 +389,7 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
 
         res.render('admin/users', {
             title: 'Manage Users',
-            users,
+            users: decorated,
             globalSettings,
             page: 'users'
         });
