@@ -405,7 +405,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Set user session
     console.log('🔐 Setting user session...');
     const sessionId = require('crypto').randomBytes(32).toString('hex');
-    req.session.user = { email, sessionId };
+    req.session.user = { email, sessionId, ip, ipInfo };
 
     // Store session in database
     const sessionDurationMinutes =
@@ -478,8 +478,14 @@ router.get('/codes', async (req, res) => {
       .toArray();
 
     if (codes.length > 0) {
-      const ip = resolveClientIP(req);
-      const ipInfo = await getIPInfo(ip);
+      const ip =
+        (req.session.user && req.session.user.ip) || resolveClientIP(req);
+      const ipInfo =
+        req.session.user &&
+        req.session.user.ipInfo &&
+        req.session.user.ipInfo.ip === ip
+          ? req.session.user.ipInfo
+          : await getIPInfo(ip);
       await db.collection('access_logs').insertOne({
         email,
         action: 'Códigos recarregados',
