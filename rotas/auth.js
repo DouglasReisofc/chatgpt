@@ -124,8 +124,10 @@ async function fetchImapCodes(db, email, limit = 5) {
     user: 'financeiro@clubevip.net',
     pass: 'CYRSG6vT86ZVfe'
   };
+
   const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
   const imapCfg = Object.assign({}, defaults, config.imap);
+
   const imapConfig = {
     imap: {
       user: imapCfg.user,
@@ -138,6 +140,7 @@ async function fetchImapCodes(db, email, limit = 5) {
       connTimeout: 10000
     }
   };
+
   try {
     const connection = await imaps.connect(imapConfig);
     await connection.openBox('INBOX');
@@ -146,54 +149,53 @@ async function fetchImapCodes(db, email, limit = 5) {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const sinceDate = `${yesterday.getDate()}-${months[yesterday.getMonth()]}-${yesterday.getFullYear()}`;
 
-    const searchCriteria = [
-      ['FROM', 'noreply@tm.openai.com'],
-      ['SINCE', sinceDate]
-    ];
-    const fetchOptions = { bodies: ['HEADER'], struct: true };
+    // Build search query in the same format as the PHP version
+    const searchString = `FROM "noreply@tm.openai.com" SINCE "${sinceDate}"`;
+    const messages = await connection.search([searchString], { bodies: ['HEADER', 'TEXT'], struct: true });
 
-    const messages = await connection.search(searchCriteria, fetchOptions);
     const codes = [];
-
     messages.sort((a, b) => b.attributes.date - a.attributes.date);
-    for (const item of messages) {
-      const parts = imaps.getParts(item.attributes.struct);
-      const textPart = parts.find(
-        p => p.type === 'text' && !p.disposition
-      );
-      const headerPart = item.parts.find(p => p.which === 'HEADER');
+
+    for (const msg of messages) {
+      // Get raw body
       let body = '';
+      const textPart = imaps.getParts(msg.attributes.struct).find(p => p.type === 'text' && !p.disposition);
       if (textPart) {
-        body = await connection.getPartData(item, textPart);
+        body = await connection.getPartData(msg, textPart);
+      } else {
+        const text = msg.parts.find(p => p.which === 'TEXT');
+        body = text ? text.body : '';
       }
-      const headerText = headerPart ? headerPart.body : '';
+
+      // Decode body
       const parsed = await simpleParser(body).catch(() => ({}));
-      const text = parsed.text || parsed.html || body;
-      const match = text.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
+      const content = parsed.text || parsed.html || body;
+      const match = content.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
       if (!match) continue;
 
+      // Extract email from headers
+      const headerPart = msg.parts.find(p => p.which === 'HEADER');
+      const headerText = headerPart ? headerPart.body : '';
       let emailAddr = '';
       let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
       if (m) {
-        for (const part of m[1].split(',')) {
-          const trimmed = part.trim();
+        for (const fwd of m[1].split(',')) {
+          const trimmed = fwd.trim();
           if (trimmed.includes('@') && trimmed !== 'aanniitaas@gmail.com') {
             emailAddr = trimmed;
             break;
           }
         }
       }
+
       if (!emailAddr) {
         m = /Delivered-To:\s*(.+)/i.exec(headerText);
-        if (m) {
-          emailAddr = m[1].trim();
-        }
+        if (m) emailAddr = m[1].trim();
       }
+
       if (!emailAddr) {
         m = /To:\s*(.+)/i.exec(headerText);
-        if (m) {
-          emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
-        }
+        if (m) emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
       }
 
       if (emailAddr.includes('aanniitaas@gmail.com')) {
