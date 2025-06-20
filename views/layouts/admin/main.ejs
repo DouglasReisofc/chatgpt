@@ -9,16 +9,16 @@
     <link href="/css/admin.css" rel="stylesheet">
 </head>
 <body>
-    <%- include('layouts/admin/header') %>
+    <%- include('./header') %>
 
     <div class="d-flex">
-        <%- include('layouts/admin/sidenav') %>
+        <%- include('./sidenav') %>
         <main class="flex-grow-1 p-3">
             <%- body %>
         </main>
     </div>
 
-    <%- include('layouts/admin/footer') %>
+    <%- include('./footer') %>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/admin.js"></script>
