@@ -549,6 +549,14 @@ router.post('/users', requireAdmin, async (req, res) => {
     }
 
     try {
+        const globalSettings =
+            (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
+                limitEnabled: true,
+                durationEnabled: true,
+                maxSessions: 3,
+                sessionDuration: 5
+            };
+
         const ops = cleaned.map(e => ({
             updateOne: {
                 filter: { email: e },
@@ -557,7 +565,9 @@ router.post('/users', requireAdmin, async (req, res) => {
                         email: e,
                         verified: true,
                         createdAt: new Date(),
-                        lastLogin: null
+                        lastLogin: null,
+                        maxSessions: globalSettings.maxSessions,
+                        sessionDuration: globalSettings.sessionDuration
                     }
                 },
                 upsert: true

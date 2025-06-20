@@ -44,10 +44,10 @@
                     <td><%= user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Nunca' %></td>
                     <td><%= user.accessCount %></td>
                     <td>
-                        <input type="number" class="form-control form-control-sm max-sessions" value="<%= user.maxSessions || 3 %>" min="1" style="width: 80px;">
+                        <input type="number" class="form-control form-control-sm max-sessions" value="<%= typeof user.maxSessions === 'number' ? user.maxSessions : globalSettings.maxSessions %>" min="0" style="width: 80px;">
                     </td>
                     <td>
-                        <input type="number" class="form-control form-control-sm session-duration" value="<%= user.sessionDuration || 5 %>" min="1" style="width: 80px;">
+                        <input type="number" class="form-control form-control-sm session-duration" value="<%= typeof user.sessionDuration === 'number' ? user.sessionDuration : globalSettings.sessionDuration %>" min="1" style="width: 80px;">
                     </td>
                     <td>
                         <button class="btn btn-warning btn-action reset-session" title="Resetar Sessão">
