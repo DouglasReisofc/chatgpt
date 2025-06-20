@@ -64,6 +64,18 @@
         .btn-copy:hover {
             background-color: #0056b3;
         }
+        #copyModal .modal-content {
+            border-radius: 25px;
+            position: relative;
+        }
+        .copy-countdown {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -139,6 +151,7 @@
 <div class="modal fade" id="copyModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content rounded-4">
+            <span id="copyModalCountdown" class="copy-countdown"></span>
             <div class="modal-header">
                 <h5 class="modal-title">Código copiado!</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -154,20 +167,36 @@
 <script>
     const copyModal = new bootstrap.Modal(document.getElementById('copyModal'));
 
+    let countdownTimer;
     function copyCode(index, code) {
         navigator.clipboard.writeText(code)
             .then(function() {
                 document.getElementById('copyModalText').innerText = 'Código ' + code + ' copiado!';
+                let count = 3;
+                const el = document.getElementById('copyModalCountdown');
+                el.textContent = count;
                 copyModal.show();
-                setTimeout(function() {
-                    copyModal.hide();
-                }, 2000);
+
+                clearInterval(countdownTimer);
+                countdownTimer = setInterval(function() {
+                    count--;
+                    if (count <= 0) {
+                        clearInterval(countdownTimer);
+                        copyModal.hide();
+                    } else {
+                        el.textContent = count;
+                    }
+                }, 1000);
             })
             .catch(function(err) {
                 console.error('Erro ao copiar código: ', err);
                 alert('Código copiado: ' + code);
             });
     }
+
+    document.getElementById('copyModal').addEventListener('hidden.bs.modal', () => {
+        clearInterval(countdownTimer);
+    });
     
     function updatePage() {
         window.location.reload();
