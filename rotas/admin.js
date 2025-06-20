@@ -138,19 +138,25 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
 router.get('/logs', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
-        let { limit = '100', email = '', action = '' } = req.query;
+        let { limit = '100', page = '1', email = '', action = '' } = req.query;
+
         let nLimit = parseInt(limit, 10);
         if (isNaN(nLimit) || nLimit < 1) nLimit = 100;
         if (nLimit > 1000) nLimit = 1000;
+
+        let pageNum = parseInt(page, 10);
+        if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
 
         const query = {};
         if (email) query.email = { $regex: email, $options: 'i' };
         if (action) query.action = action;
 
+        const total = await db.collection('access_logs').countDocuments(query);
         const logs = await db
             .collection('access_logs')
             .find(query)
             .sort({ timestamp: -1 })
+            .skip((pageNum - 1) * nLimit)
             .limit(nLimit)
             .toArray();
 
@@ -163,11 +169,54 @@ router.get('/logs', requireAdmin, adminLayout, async (req, res) => {
             blockedIps,
             actions,
             filters: { email, action, limit: nLimit },
+            pagination: {
+                total,
+                page: pageNum,
+                pages: Math.ceil(total / nLimit)
+            },
             page: 'logs'
         });
     } catch (error) {
         console.error('Logs page error:', error);
         res.status(500).send('Error loading logs');
+    }
+});
+
+// Logs JSON for dynamic pagination/search
+router.get('/logs/data', requireAdmin, async (req, res) => {
+    const db = req.db;
+    try {
+        let { limit = '100', page = '1', email = '', action = '' } = req.query;
+
+        let nLimit = parseInt(limit, 10);
+        if (isNaN(nLimit) || nLimit < 1) nLimit = 100;
+        if (nLimit > 1000) nLimit = 1000;
+
+        let pageNum = parseInt(page, 10);
+        if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+
+        const query = {};
+        if (email) query.email = { $regex: email, $options: 'i' };
+        if (action) query.action = action;
+
+        const total = await db.collection('access_logs').countDocuments(query);
+        const logs = await db
+            .collection('access_logs')
+            .find(query)
+            .sort({ timestamp: -1 })
+            .skip((pageNum - 1) * nLimit)
+            .limit(nLimit)
+            .toArray();
+
+        res.json({
+            logs,
+            total,
+            page: pageNum,
+            pages: Math.ceil(total / nLimit)
+        });
+    } catch (error) {
+        console.error('Logs data error:', error);
+        res.status(500).json({ error: 'Failed to load logs' });
     }
 });
 

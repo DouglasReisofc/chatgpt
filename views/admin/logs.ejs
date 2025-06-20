@@ -1,7 +1,7 @@
 <h2 class="m-0 mb-4">Logs de Acesso</h2>
 <form id="filterForm" class="row row-cols-auto g-2 mb-3">
-    <div class="col">
-        <input type="text" name="email" class="form-control" placeholder="Buscar email" value="<%= filters.email %>">
+    <div class="col flex-grow-1">
+        <input type="text" name="email" id="searchEmail" class="form-control" placeholder="Buscar email" value="<%= filters.email %>">
     </div>
     <div class="col">
         <select name="action" class="form-select">
@@ -72,6 +72,9 @@
         </table>
     </div>
 </div>
+<nav>
+    <ul class="pagination" id="pagination"></ul>
+</nav>
 
 <!-- IP Info Modal -->
 <div class="modal fade" id="ipInfoModal" tabindex="-1">
@@ -92,32 +95,124 @@
 </div>
 
 <script>
-    document.querySelectorAll('.block-ip').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const ip = this.dataset.ip;
-            try {
-                const res = await fetch('/admin/settings/block-ip', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ ip })
-                });
-                if(res.ok) {
-                    location.reload();
-                } else {
+    const blockedIps = <%- JSON.stringify(blockedIps) %>;
+    const emailInput = document.getElementById('searchEmail');
+    const actionSelect = document.querySelector('select[name="action"]');
+    const limitSelect = document.querySelector('select[name="limit"]');
+    const tbody = document.querySelector('#logsTable tbody');
+    const pagination = document.getElementById('pagination');
+    let currentPage = <%= pagination.page %>;
+    let debounceTimer;
+
+    function rowTemplate(log) {
+        const blocked = blockedIps.find(b => b.address === log.ip);
+        const flag = log.ipInfo && log.ipInfo.flag ? log.ipInfo.flag.emoji + ' ' : '';
+        const ref = log.referer
+            ? `<a href="${log.referer}" target="_blank">${log.referer.length > 40 ? log.referer.slice(0,37)+'...' : log.referer}</a>`
+            : '';
+        const blockBtn = blocked
+            ? '<span class="badge bg-secondary ms-1">Bloqueado</span>'
+            : `<button class="btn btn-sm btn-danger ms-1 block-ip" data-ip="${log.ip}">Bloquear</button>`;
+        return `<tr>
+            <td>${log.email}</td>
+            <td>${log.action}</td>
+            <td>${new Date(log.timestamp).toLocaleString()}</td>
+            <td>${log.ip}</td>
+            <td>${flag}${log.country || 'Desconhecido'}</td>
+            <td>${ref}</td>
+            <td><button class="btn btn-sm btn-info ip-info" data-ip="${log.ip}">Detalhes</button> ${blockBtn}</td>
+        </tr>`;
+    }
+
+    async function loadLogs(page = 1) {
+        currentPage = page;
+        const params = new URLSearchParams({
+            email: emailInput.value,
+            action: actionSelect.value,
+            limit: limitSelect.value,
+            page
+        });
+        try {
+            const res = await fetch('/admin/logs/data?' + params.toString());
+            if (!res.ok) return;
+            const data = await res.json();
+            tbody.innerHTML = data.logs.map(rowTemplate).join('');
+            renderPagination(data.page, data.pages);
+            attachRowEvents();
+        } catch(e) {
+            console.error('Erro ao carregar logs', e);
+        }
+    }
+
+    function renderPagination(page, pages) {
+        let html = '';
+        if (pages > 1) {
+            html += `<li class="page-item${page===1?' disabled':''}"><a href="#" class="page-link" data-page="${page-1}">Anterior</a></li>`;
+            for (let p=1; p<=pages; p++) {
+                html += `<li class="page-item${p===page?' active':''}"><a href="#" class="page-link" data-page="${p}">${p}</a></li>`;
+            }
+            html += `<li class="page-item${page===pages?' disabled':''}"><a href="#" class="page-link" data-page="${page+1}">Próxima</a></li>`;
+        }
+        pagination.innerHTML = html;
+        pagination.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const p = parseInt(a.dataset.page);
+                if(!isNaN(p)) loadLogs(p);
+            });
+        });
+    }
+
+    function attachRowEvents() {
+        document.querySelectorAll('.block-ip').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const ip = this.dataset.ip;
+                try {
+                    const res = await fetch('/admin/settings/block-ip', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({ ip })
+                    });
+                    if(res.ok) {
+                        blockedIps.push({ address: ip });
+                        loadLogs(currentPage);
+                    } else {
+                        alert('Erro ao bloquear IP');
+                    }
+                } catch(e) {
                     alert('Erro ao bloquear IP');
                 }
-            } catch(e) {
-                alert('Erro ao bloquear IP');
-            }
+            });
         });
-    });
+
+        document.querySelectorAll('.ip-info').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const ip = this.dataset.ip;
+                const modalBody = document.getElementById('ipInfoBody');
+                modalBody.textContent = 'Carregando...';
+                const ipModal = new bootstrap.Modal(document.getElementById('ipInfoModal'));
+                ipModal.show();
+                try {
+                    const res = await fetch(`/admin/ip-info/${ip}`);
+                    if(res.ok) {
+                        const data = await res.json();
+                        modalBody.textContent = JSON.stringify(data, null, 2);
+                    } else {
+                        modalBody.textContent = 'Erro ao obter informações.';
+                    }
+                } catch(e) {
+                    modalBody.textContent = 'Erro ao obter informações.';
+                }
+            });
+        });
+    }
 
     document.getElementById('resetLogsBtn').addEventListener('click', async () => {
         if(confirm('Deseja realmente apagar todos os logs?')) {
             try {
                 const res = await fetch('/admin/settings/reset-logs', { method: 'POST' });
                 if(res.ok) {
-                    location.reload();
+                    loadLogs(1);
                 } else {
                     alert('Erro ao resetar logs');
                 }
@@ -127,30 +222,15 @@
         }
     });
 
-    const form = document.getElementById('filterForm');
-    form.querySelectorAll('select').forEach(el => {
-        el.addEventListener('change', () => form.submit());
+    emailInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => loadLogs(1), 300);
+    });
+    [actionSelect, limitSelect].forEach(el => {
+        el.addEventListener('change', () => loadLogs(1));
     });
 
-    // IP info buttons
-    document.querySelectorAll('.ip-info').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const ip = this.dataset.ip;
-            const modalBody = document.getElementById('ipInfoBody');
-            modalBody.textContent = 'Carregando...';
-            const ipModal = new bootstrap.Modal(document.getElementById('ipInfoModal'));
-            ipModal.show();
-            try {
-                const res = await fetch(`/admin/ip-info/${ip}`);
-                if(res.ok) {
-                    const data = await res.json();
-                    modalBody.textContent = JSON.stringify(data, null, 2);
-                } else {
-                    modalBody.textContent = 'Erro ao obter informações.';
-                }
-            } catch(e) {
-                modalBody.textContent = 'Erro ao obter informações.';
-            }
-        });
-    });
+    // Initial event binding
+    attachRowEvents();
+    renderPagination(<%= pagination.page %>, <%= pagination.pages %>);
 </script>
