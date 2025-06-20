@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
 const imaps = require('imap-simple');
+const { simpleParser } = require('mailparser');
 const axios = require('axios');
 const net = require('net');
 
@@ -149,19 +150,26 @@ async function fetchImapCodes(db, email, limit = 5) {
       ['FROM', 'noreply@tm.openai.com'],
       ['SINCE', sinceDate]
     ];
-    const fetchOptions = { bodies: ['HEADER', 'TEXT'], struct: true };
+    const fetchOptions = { bodies: ['HEADER'], struct: true };
 
     const messages = await connection.search(searchCriteria, fetchOptions);
     const codes = [];
 
     messages.sort((a, b) => b.attributes.date - a.attributes.date);
     for (const item of messages) {
-      const textPart = item.parts.find(p => p.which === 'TEXT');
+      const parts = imaps.getParts(item.attributes.struct);
+      const textPart = parts.find(
+        p => p.type === 'text' && !p.disposition
+      );
       const headerPart = item.parts.find(p => p.which === 'HEADER');
-      const body = textPart ? textPart.body : '';
+      let body = '';
+      if (textPart) {
+        body = await connection.getPartData(item, textPart);
+      }
       const headerText = headerPart ? headerPart.body : '';
-
-      const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
+      const parsed = await simpleParser(body).catch(() => ({}));
+      const text = parsed.text || parsed.html || body;
+      const match = text.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
       if (!match) continue;
 
       let emailAddr = '';

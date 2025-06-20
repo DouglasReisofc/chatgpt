@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "postinstall": "node install.js",
-    "start": "node index.js",
+    "start": "bash start-mongodb.sh && node index.js",
     "dev": "nodemon index.js",
     "init-db": "node init-database.js",
     "mongodb": "start.bat"
@@ -20,6 +20,7 @@
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.1",
     "imap-simple": "^5.1.0",
+    "mailparser": "^3.7.3",
     "mongodb": "^3.6.12",
     "nodemailer": "^6.9.4"
   },
