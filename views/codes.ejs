@@ -9,7 +9,7 @@
     <link href="/css/style.css" rel="stylesheet" />
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #007bff 0%, #00bcd4 100%);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 20px;
@@ -64,12 +64,6 @@
         .btn-copy:hover {
             background-color: #0056b3;
         }
-        .copied-notification {
-            margin-top: 10px;
-            color: #28a745;
-            font-weight: 600;
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -109,21 +103,19 @@
                             <div class="chatgpt-icon">
                                 <i class="fas fa-robot"></i>
                             </div>
-                            <h6 class="mb-0">Usuário ChatGPT:</h6>
+                            <h6 class="mb-0">Usuário ChatGpt:</h6>
                         </div>
                         <div class="code-card-body">
                             <div class="user-email">
                                 <%= code.email || 'usuario@chatgpt.com' %>
                             </div>
+                            <h6 class="mt-3">Código:</h6>
                             <div class="code-display" id="code-<%= index %>">
                                 <%= code.code %>
                             </div>
                             <button class="copy-btn" onclick="copyCode('<%= index %>', '<%= code.code %>')">
                                 <i class="fas fa-copy me-2"></i>Copiar Código
                             </button>
-                            <div id="copied-notification-<%= index %>" class="copied-notification" style="display:none;">
-                                <i class="fas fa-check me-2"></i>Código <%= code.code %> foi copiado!
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -143,22 +135,38 @@
     </div>
 </div>
 
+<!-- Copy Code Modal -->
+<div class="modal fade" id="copyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-4">
+            <div class="modal-header">
+                <h5 class="modal-title">Código copiado!</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="copyModalText" class="mb-0"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    const copyModal = new bootstrap.Modal(document.getElementById('copyModal'));
+
     function copyCode(index, code) {
-        // Copia o código para a área de transferência
-        navigator.clipboard.writeText(code).then(function() {
-            // Mostra a notificação
-            const notification = document.getElementById('copied-notification-' + index);
-            notification.style.display = 'block';
-            
-            // Esconde a notificação após 3 segundos
-            setTimeout(function() {
-                notification.style.display = 'none';
-            }, 3000);
-        }).catch(function(err) {
-            console.error('Erro ao copiar código: ', err);
-            alert('Código copiado: ' + code);
-        });
+        navigator.clipboard.writeText(code)
+            .then(function() {
+                document.getElementById('copyModalText').innerText = 'Código ' + code + ' copiado!';
+                copyModal.show();
+                setTimeout(function() {
+                    copyModal.hide();
+                }, 2000);
+            })
+            .catch(function(err) {
+                console.error('Erro ao copiar código: ', err);
+                alert('Código copiado: ' + code);
+            });
     }
     
     function updatePage() {
