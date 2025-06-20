@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const toggleBtn = document.getElementById('themeToggle');
+  const sidebar = document.getElementById('sidebar');
   if (localStorage.getItem('admin-theme') === 'dark') {
     document.body.classList.add('dark');
   }
@@ -9,5 +10,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const theme = document.body.classList.contains('dark') ? 'dark' : 'light';
       localStorage.setItem('admin-theme', theme);
     });
+  }
+
+  if (sidebar) {
+    const updateSidebar = () => {
+      if (window.innerWidth >= 768) {
+        sidebar.classList.add('show');
+      } else {
+        sidebar.classList.remove('show');
+      }
+    };
+
+    updateSidebar();
+    window.addEventListener('resize', updateSidebar);
   }
 });
