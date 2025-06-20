@@ -199,22 +199,30 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             sessionDuration: 5
         };
 
-        // Load code limit setting
-        const codeLimit = await db.collection('settings').findOne({ key: 'codeLimitEnabled' }) || { enabled: true };
-
-        // Load blocked IPs
-        const blockedIps = await db.collection('blocked_ips').find().sort({ blockedAt: -1 }).toArray();
-
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
             globalSettings,
-            blockedIps,
-            codeLimit,
             page: 'settings'
         });
     } catch (error) {
         console.error('Settings error:', error);
         res.status(500).send('Error loading settings');
+    }
+});
+
+// Code limit settings page
+router.get('/code-settings', requireAdmin, adminLayout, async (req, res) => {
+    const db = req.db;
+    try {
+        const codeLimit = await db.collection('settings').findOne({ key: 'codeLimitEnabled' }) || { enabled: true, limit: 5 };
+        res.render('admin/code_settings', {
+            title: 'Limite de Acesso',
+            codeLimit,
+            page: 'code-settings'
+        });
+    } catch (error) {
+        console.error('Code limit settings error:', error);
+        res.status(500).send('Error loading code limit settings');
     }
 });
 
@@ -249,11 +257,17 @@ router.post('/settings/global', requireAdmin, async (req, res) => {
 router.post('/settings/code-limit', requireAdmin, async (req, res) => {
     const db = req.db;
     const enabled = !!req.body.enabled;
+    const limit = typeof req.body.limit === 'number' ? req.body.limit : undefined;
+
+    const update = { enabled };
+    if (typeof limit === 'number') {
+        update.limit = limit;
+    }
 
     try {
         await db.collection('settings').updateOne(
             { key: 'codeLimitEnabled' },
-            { $set: { enabled } },
+            { $set: update },
             { upsert: true }
         );
         res.json({ success: true });

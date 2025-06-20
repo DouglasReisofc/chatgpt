@@ -16,49 +16,6 @@
             <button type="submit" class="btn btn-primary">Salvar Configurações</button>
         </form>
         <div id="globalSettingsMessage" class="mt-3"></div>
-        <div class="form-check form-switch mt-3">
-            <input class="form-check-input" type="checkbox" id="codeLimitEnabled" <%= codeLimit.enabled ? 'checked' : '' %>>
-            <label class="form-check-label" for="codeLimitEnabled">Limitar acessos ao painel</label>
-        </div>
-        <div id="codeLimitMessage" class="mt-2"></div>
-    </div>
-</div>
-
-<div class="card settings-card mb-4">
-    <div class="card-body">
-        <h4 class="card-title mb-4">Bloqueio de IPs</h4>
-        <form id="ipBlockForm" class="mb-4">
-            <div class="row g-3">
-                <div class="col-md-8">
-                    <input type="text" id="ipAddress" class="form-control" placeholder="Digite o endereço IP" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" required>
-                </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-danger w-100">Bloquear IP</button>
-                </div>
-            </div>
-        </form>
-        <div class="table-responsive">
-            <table class="table" id="blockedIpsTable">
-                <thead>
-                    <tr>
-                        <th>Endereço IP</th>
-                        <th>Data de Bloqueio</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% blockedIps.forEach(ip => { %>
-                    <tr>
-                        <td><%= ip.address %></td>
-                        <td><%= new Date(ip.blockedAt).toLocaleString() %></td>
-                        <td>
-                            <button class="btn btn-sm btn-success unblock-ip" data-ip="<%= ip.address %>">Desbloquear</button>
-                        </td>
-                    </tr>
-                    <% }); %>
-                </tbody>
-            </table>
-        </div>
     </div>
 </div>
 
@@ -104,7 +61,6 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const globalSettingsForm = document.getElementById('globalSettingsForm');
-        const ipBlockForm = document.getElementById('ipBlockForm');
         const resetLogsBtn = document.getElementById('resetLogsBtn');
         const resetLogsModal = new bootstrap.Modal(document.getElementById('resetLogsModal'));
         const confirmResetLogsBtn = document.getElementById('confirmResetLogs');
@@ -114,24 +70,6 @@
         const sessionDurationInput = document.getElementById('globalSessionDuration');
         maxSessionsInput.value = <%= globalSettings.maxSessions %>;
         sessionDurationInput.value = <%= globalSettings.sessionDuration %>;
-        const codeLimitSwitch = document.getElementById('codeLimitEnabled');
-        codeLimitSwitch.addEventListener('change', async function() {
-            const enabled = codeLimitSwitch.checked;
-            try {
-                const response = await fetch('/admin/settings/code-limit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled })
-                });
-                if (response.ok) {
-                    showMessage('codeLimitMessage', 'Configuração atualizada', 'success');
-                } else {
-                    showMessage('codeLimitMessage', 'Erro ao salvar configuração', 'danger');
-                }
-            } catch (error) {
-                showMessage('codeLimitMessage', 'Erro ao salvar configuração', 'danger');
-            }
-        });
 
         globalSettingsForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -153,44 +91,6 @@
             }
         });
 
-        ipBlockForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const ipAddress = document.getElementById('ipAddress').value;
-            try {
-                const response = await fetch('/admin/settings/block-ip', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ip: ipAddress })
-                });
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Erro ao bloquear IP.');
-                }
-            } catch (error) {
-                alert('Erro ao bloquear IP.');
-            }
-        });
-
-        document.querySelectorAll('.unblock-ip').forEach(button => {
-            button.addEventListener('click', async function() {
-                const ip = this.dataset.ip;
-                try {
-                    const response = await fetch('/admin/settings/unblock-ip', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ ip })
-                    });
-                    if (response.ok) {
-                        location.reload();
-                    } else {
-                        alert('Erro ao desbloquear IP.');
-                    }
-                } catch (error) {
-                    alert('Erro ao desbloquear IP.');
-                }
-            });
-        });
 
         resetLogsBtn.addEventListener('click', () => resetLogsModal.show());
 

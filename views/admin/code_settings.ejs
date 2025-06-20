@@ -1,0 +1,53 @@
+<h2 class="mb-4">Limite de Acesso</h2>
+<div class="card settings-card mb-4">
+    <div class="card-body">
+        <h4 class="card-title mb-4">Configurações de Limite</h4>
+        <form id="codeLimitForm">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="codeLimitEnabled" <%= codeLimit.enabled ? 'checked' : '' %>>
+                <label class="form-check-label" for="codeLimitEnabled">Ativar Limite de Acesso</label>
+            </div>
+            <div class="mb-3">
+                <label for="codeLimitValue" class="form-label">Máximo de acessos ao painel</label>
+                <input type="number" id="codeLimitValue" class="form-control" min="1" value="<%= codeLimit.limit || 5 %>">
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+        <div id="codeLimitMessage" class="mt-3"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('codeLimitForm');
+        const enabledInput = document.getElementById('codeLimitEnabled');
+        const limitInput = document.getElementById('codeLimitValue');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const enabled = enabledInput.checked;
+            const limit = parseInt(limitInput.value);
+            try {
+                const response = await fetch('/admin/settings/code-limit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, limit })
+                });
+                if (response.ok) {
+                    show('Configuração atualizada', 'success');
+                } else {
+                    show('Erro ao salvar configuração', 'danger');
+                }
+            } catch (error) {
+                show('Erro ao salvar configuração', 'danger');
+            }
+        });
+
+        function show(msg, type) {
+            const el = document.getElementById('codeLimitMessage');
+            el.className = `alert alert-${type} mt-3`;
+            el.textContent = msg;
+            setTimeout(() => el.remove(), 3000);
+        }
+    });
+</script>

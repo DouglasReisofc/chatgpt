@@ -334,12 +334,13 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Load code limit setting
     const codeLimitSetting = await db.collection('settings').findOne({ key: 'codeLimitEnabled' });
     const codeLimitEnabled = !codeLimitSetting || codeLimitSetting.enabled !== false;
+    const codeLimitValue = codeLimitSetting && typeof codeLimitSetting.limit === 'number' ? codeLimitSetting.limit : CODE_PAGE_LIMIT;
 
     // Set user session
     console.log('🔐 Setting user session...');
     const sessionId = require('crypto').randomBytes(32).toString('hex');
     if (codeLimitEnabled) {
-      req.session.user = { email, sessionId, codesRemaining: CODE_PAGE_LIMIT };
+      req.session.user = { email, sessionId, codesRemaining: codeLimitValue };
     } else {
       req.session.user = { email, sessionId };
     }
@@ -360,7 +361,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       userAgent: req.headers['user-agent']
     };
     if (codeLimitEnabled) {
-      sessionData.codesRemaining = CODE_PAGE_LIMIT;
+      sessionData.codesRemaining = codeLimitValue;
     }
     await db.collection('active_sessions').insertOne(sessionData);
 
@@ -384,14 +385,15 @@ router.get('/codes', async (req, res) => {
 
     const limitSetting = await db.collection('settings').findOne({ key: 'codeLimitEnabled' });
     const codeLimitEnabled = !limitSetting || limitSetting.enabled !== false;
+    const codeLimitValue = limitSetting && typeof limitSetting.limit === 'number' ? limitSetting.limit : CODE_PAGE_LIMIT;
 
     const { email, sessionId } = req.session.user;
     let sessionRecord = await db.collection('active_sessions').findOne({ email, sessionId });
 
     if (codeLimitEnabled) {
-      let remaining = sessionRecord ? sessionRecord.codesRemaining : CODE_PAGE_LIMIT;
+      let remaining = sessionRecord ? sessionRecord.codesRemaining : codeLimitValue;
       if (remaining === undefined || remaining === null) {
-        remaining = CODE_PAGE_LIMIT;
+        remaining = codeLimitValue;
       }
 
       if (remaining <= 0) {

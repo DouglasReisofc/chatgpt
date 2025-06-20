@@ -88,6 +88,7 @@ async function initializeDatabase() {
             await db.collection('settings').insertOne({
                 key: 'codeLimitEnabled',
                 enabled: true,
+                limit: 5,
                 createdAt: new Date()
             });
             console.log('✅ Default code limit setting created');
