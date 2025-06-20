@@ -291,10 +291,17 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
         const branding =
             (await db.collection('settings').findOne({ key: 'branding' })) ||
             { panelLogoUrl: '', cardLogoUrl: '', href: 'https://www.contasvip.com.br/' };
+        const reloadSetting =
+            (await db.collection('settings').findOne({ key: 'autoReload' })) ||
+            { enabled: true, limit: 3 };
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
             codeLimit: codeLimitSetting.limit || 5,
             branding,
+            reload: {
+                enabled: reloadSetting.enabled !== false,
+                limit: reloadSetting.limit || 3
+            },
             page: 'settings'
         });
     } catch (error) {
@@ -629,6 +636,29 @@ router.post('/settings/code-display-limit', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error saving code display limit:', error);
         res.status(500).json({ error: 'Failed to save limit' });
+    }
+});
+
+// Update auto reload setting
+router.post('/settings/auto-reload', requireAdmin, async (req, res) => {
+    const { enabled, limit } = req.body;
+    const db = req.db;
+
+    const parsed = parseInt(limit);
+    if (enabled && (!Number.isInteger(parsed) || parsed <= 0)) {
+        return res.status(400).json({ error: 'Invalid limit' });
+    }
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'autoReload' },
+            { $set: { enabled: !!enabled, limit: parsed || 0 } },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving auto reload setting:', error);
+        res.status(500).json({ error: 'Failed to save setting' });
     }
 });
 

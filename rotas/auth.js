@@ -505,12 +505,21 @@ router.get('/codes', async (req, res) => {
         cardLogoUrl: '',
         href: 'https://www.contasvip.com.br/'
       };
+    const reloadSetting =
+      (await db.collection('settings').findOne({ key: 'autoReload' })) || {
+        enabled: true,
+        limit: 3
+      };
 
     res.render('codes', {
       title: 'ChatGPT Codes',
       codes,
       user: req.session.user,
       branding,
+      autoReload: {
+        enabled: reloadSetting.enabled !== false,
+        limit: reloadSetting.limit || 3
+      },
       expiresAt:
         sessionRecord && sessionRecord.expiresAt
           ? sessionRecord.expiresAt.toISOString()

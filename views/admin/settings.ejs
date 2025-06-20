@@ -36,6 +36,24 @@
 
 <div class="card settings-card mt-4">
     <div class="card-body">
+        <h4 class="card-title mb-4">Auto-Recarregar Códigos</h4>
+        <form id="reloadSettingsForm">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="reloadEnabled" <%= reload.enabled ? 'checked' : '' %>>
+                <label class="form-check-label" for="reloadEnabled">Ativar Auto-Recarregamento</label>
+            </div>
+            <div class="mb-3">
+                <label for="reloadLimit" class="form-label">Limite de Recarregamentos</label>
+                <input type="number" id="reloadLimit" class="form-control" min="1" value="<%= reload.limit %>">
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+        <div id="reloadSettingsMessage" class="mt-3"></div>
+    </div>
+</div>
+
+<div class="card settings-card mt-4">
+    <div class="card-body">
         <h4 class="card-title mb-4">Branding</h4>
         <form id="brandingForm" enctype="multipart/form-data">
             <div class="mb-3">
@@ -91,6 +109,9 @@
         const panelLogoFile = document.getElementById('panelLogoFile');
         const cardLogoFile = document.getElementById('cardLogoFile');
         const hrefInput = document.getElementById('siteHref');
+        const reloadForm = document.getElementById('reloadSettingsForm');
+        const reloadEnabled = document.getElementById('reloadEnabled');
+        const reloadLimit = document.getElementById('reloadLimit');
 
         codesLimitForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -132,6 +153,26 @@
                 }
             } catch (err) {
                 showMessage('brandingMessage', 'Erro ao salvar', 'danger');
+            }
+        });
+
+        reloadForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const enabled = reloadEnabled.checked;
+            const limit = parseInt(reloadLimit.value);
+            try {
+                const res = await fetch('/admin/settings/auto-reload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, limit })
+                });
+                if (res.ok) {
+                    showMessage('reloadSettingsMessage', 'Configuração salva', 'success');
+                } else {
+                    showMessage('reloadSettingsMessage', 'Erro ao salvar', 'danger');
+                }
+            } catch (err) {
+                showMessage('reloadSettingsMessage', 'Erro ao salvar', 'danger');
             }
         });
 
