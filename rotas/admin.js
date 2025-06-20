@@ -253,9 +253,14 @@ router.get('/ip-info/:ip', requireAdmin, async (req, res) => {
 
 // Settings page
 router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
+    const db = req.db;
     try {
+        const codeLimitSetting =
+            (await db.collection('settings').findOne({ key: 'codeDisplayLimit' })) ||
+            { limit: 5 };
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
+            codeLimit: codeLimitSetting.limit || 5,
             page: 'settings'
         });
     } catch (error) {
@@ -562,6 +567,29 @@ router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error resetting sessions:', error);
         res.status(500).json({ error: 'Failed to reset sessions' });
+    }
+});
+
+// Update code display limit
+router.post('/settings/code-display-limit', requireAdmin, async (req, res) => {
+    const { limit } = req.body;
+    const db = req.db;
+
+    const parsed = parseInt(limit);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        return res.status(400).json({ error: 'Invalid limit' });
+    }
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'codeDisplayLimit' },
+            { $set: { limit: parsed } },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving code display limit:', error);
+        res.status(500).json({ error: 'Failed to save limit' });
     }
 });
 

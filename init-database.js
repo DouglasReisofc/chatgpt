@@ -128,6 +128,16 @@ async function initializeDatabase() {
         );
         console.log('✅ Email configuration ensured');
 
+        await db.collection('settings').updateOne(
+            { key: 'codeDisplayLimit' },
+            {
+                $setOnInsert: { createdAt: new Date() },
+                $set: { limit: 5 }
+            },
+            { upsert: true }
+        );
+        console.log('✅ Code display limit ensured');
+
 
         console.log('✅ Database initialized successfully');
 

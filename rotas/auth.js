@@ -115,7 +115,7 @@ async function getIPInfo(ip) {
 }
 
 // Retrieve verification codes from IMAP using stored configuration
-async function fetchImapCodes(db) {
+async function fetchImapCodes(db, email, limit = 5) {
   const defaults = {
     host: 'imap.uhserver.com',
     port: 993,
@@ -142,21 +142,35 @@ async function fetchImapCodes(db) {
     await connection.openBox('INBOX');
 
     const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
-    const searchCriteria = [['FROM', 'noreply@tm.openai.com'], ['SINCE', yesterday.toISOString().slice(0,10)]];
+    const searchCriteria = [
+      ['FROM', 'noreply@tm.openai.com'],
+      ['TO', email],
+      ['SINCE', yesterday.toISOString().slice(0,10)]
+    ];
     const fetchOptions = { bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)', 'TEXT'], struct: true };
 
     const messages = await connection.search(searchCriteria, fetchOptions);
     const codes = [];
 
-    messages.forEach(item => {
-      const all = item.parts.find(part => part.which === 'TEXT');
-      const id = item.attributes.uid;
-      const body = 'Imap-Id: ' + id + '\r\n' + all.body;
-      const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
-      if (match) {
-        codes.push({ code: match[1] });
-      }
-    });
+    messages
+      .sort((a, b) => b.attributes.uid - a.attributes.uid)
+      .slice(0, limit)
+      .forEach(item => {
+        const textPart = item.parts.find(p => p.which === 'TEXT');
+        const header = item.parts.find(p => p.which.startsWith('HEADER'));
+        const id = item.attributes.uid;
+        const body = 'Imap-Id: ' + id + '\r\n' + (textPart ? textPart.body : '');
+        const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
+        if (match) {
+          let to = '';
+          if (header && header.body && header.body.to) {
+            to = Array.isArray(header.body.to) ? header.body.to[0] : header.body.to;
+            const m = /<([^>]+)>/.exec(to);
+            if (m) to = m[1];
+          }
+          codes.push({ code: match[1], email: to });
+        }
+      });
     connection.end();
     return codes;
   } catch (err) {
@@ -514,7 +528,10 @@ router.get('/codes', async (req, res) => {
       await db.collection('active_sessions').updateOne({ email, sessionId }, update);
     }
 
-    const codes = await fetchImapCodes(db);
+    const limitSetting =
+      (await db.collection('settings').findOne({ key: 'codeDisplayLimit' })) ||
+      { limit: 5 };
+    const codes = await fetchImapCodes(db, email, limitSetting.limit || 5);
 
     console.log('🔢 Codes available:', codes.length);
 
