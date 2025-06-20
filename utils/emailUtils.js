@@ -2,6 +2,25 @@ const nodemailer = require('nodemailer');
 const imaps = require('imap-simple');
 const { simpleParser } = require('mailparser');
 
+function parseImapConnection(str) {
+  // Allow host strings like "{imap.example.com:993/imap/ssl}INBOX"
+  if (!str || !str.includes('{')) {
+    return { host: str, port: undefined, tls: undefined, box: 'INBOX' };
+  }
+  const match = str.match(/^\{([^:}]+)(?::(\d+))?(?:\/[^}]*)?\}(.+)?$/i);
+  if (!match) {
+    return { host: str, port: undefined, tls: undefined, box: 'INBOX' };
+  }
+  const [, host, port, box] = match;
+  const tls = /ssl|tls/i.test(str);
+  return {
+    host,
+    port: port ? parseInt(port, 10) : undefined,
+    tls,
+    box: box || 'INBOX'
+  };
+}
+
 async function getTransporter(db) {
   const defaults = {
     host: 'smtp.gmail.com',
@@ -31,6 +50,15 @@ async function fetchImapCodes(db, email, limit = 5) {
   const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
   const imapCfg = Object.assign({}, defaults, config.imap);
 
+  let mailbox = 'INBOX';
+  if (imapCfg.host && imapCfg.host.includes('{')) {
+    const parsed = parseImapConnection(imapCfg.host);
+    if (parsed.host) imapCfg.host = parsed.host;
+    if (parsed.port) imapCfg.port = parsed.port;
+    if (typeof parsed.tls === 'boolean') imapCfg.tls = parsed.tls;
+    mailbox = parsed.box || 'INBOX';
+  }
+
   const imapConfig = {
     imap: {
       user: imapCfg.user,
@@ -46,7 +74,7 @@ async function fetchImapCodes(db, email, limit = 5) {
 
   try {
     const connection = await imaps.connect(imapConfig);
-    await connection.openBox('INBOX');
+    await connection.openBox(mailbox);
     const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
     const searchCriteria = [
       ['FROM', 'noreply@tm.openai.com'],
