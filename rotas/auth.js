@@ -154,46 +154,49 @@ async function fetchImapCodes(db, email, limit = 5) {
     const messages = await connection.search(searchCriteria, fetchOptions);
     const codes = [];
 
-    messages
-      .sort((a, b) => b.attributes.date - a.attributes.date)
-      .slice(0, limit)
-      .forEach(item => {
-        const textPart = item.parts.find(p => p.which === 'TEXT');
-        const headerPart = item.parts.find(p => p.which === 'HEADER');
-        const body = textPart ? textPart.body : '';
-        const headerText = headerPart ? headerPart.body : '';
+    messages.sort((a, b) => b.attributes.date - a.attributes.date);
+    for (const item of messages) {
+      const textPart = item.parts.find(p => p.which === 'TEXT');
+      const headerPart = item.parts.find(p => p.which === 'HEADER');
+      const body = textPart ? textPart.body : '';
+      const headerText = headerPart ? headerPart.body : '';
 
-        const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
-        if (!match) return;
+      const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
+      if (!match) continue;
 
-        let emailAddr = '';
-        let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
+      let emailAddr = '';
+      let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
+      if (m) {
+        for (const part of m[1].split(',')) {
+          const trimmed = part.trim();
+          if (trimmed.includes('@') && trimmed !== 'aanniitaas@gmail.com') {
+            emailAddr = trimmed;
+            break;
+          }
+        }
+      }
+      if (!emailAddr) {
+        m = /Delivered-To:\s*(.+)/i.exec(headerText);
         if (m) {
-          for (const part of m[1].split(',')) {
-            const trimmed = part.trim();
-            if (trimmed.includes('@') && trimmed !== 'aanniitaas@gmail.com') {
-              emailAddr = trimmed;
-              break;
-            }
-          }
+          emailAddr = m[1].trim();
         }
-        if (!emailAddr) {
-          m = /Delivered-To:\s*(.+)/i.exec(headerText);
-          if (m) {
-            emailAddr = m[1].trim();
-          }
+      }
+      if (!emailAddr) {
+        m = /To:\s*(.+)/i.exec(headerText);
+        if (m) {
+          emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
         }
-        if (!emailAddr) {
-          m = /To:\s*(.+)/i.exec(headerText);
-          if (m) {
-            emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
-          }
-        }
+      }
 
-        if (!email || emailAddr.toLowerCase() === email.toLowerCase()) {
-          codes.push({ code: match[1], email: emailAddr });
-        }
-      });
+      if (emailAddr.includes('aanniitaas@gmail.com')) {
+        emailAddr = emailAddr.replace(/\s*aanniitaas@gmail.com\s*/i, '').trim();
+      }
+
+      if (!email || emailAddr.toLowerCase() === email.toLowerCase()) {
+        codes.push({ code: match[1], email: emailAddr || 'E-mail não encontrado' });
+        if (codes.length >= limit) break;
+      }
+    }
 
     connection.end();
     return codes;
