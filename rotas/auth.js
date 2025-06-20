@@ -115,7 +115,6 @@ async function getIPInfo(ip) {
   }
 }
 
-// Retrieve verification codes from IMAP using stored configuration
 async function fetchImapCodes(db, email, limit = 5) {
   const defaults = {
     host: 'imap.uhserver.com',
@@ -125,6 +124,7 @@ async function fetchImapCodes(db, email, limit = 5) {
     pass: 'CYRSG6vT86ZVfe'
   };
 
+  // Puxa as configurações do banco, se existirem
   const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
   const imapCfg = Object.assign({}, defaults, config.imap);
 
@@ -145,21 +145,32 @@ async function fetchImapCodes(db, email, limit = 5) {
     const connection = await imaps.connect(imapConfig);
     await connection.openBox('INBOX');
 
+    // CRIA um objeto Date para "ontem"
     const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const sinceDate = `${yesterday.getDate()}-${months[yesterday.getMonth()]}-${yesterday.getFullYear()}`;
 
-    // Build search query in the same format as the PHP version
-    const searchString = `FROM "noreply@tm.openai.com" SINCE "${sinceDate}"`;
-    const messages = await connection.search([searchString], { bodies: ['HEADER', 'TEXT'], struct: true });
+    // ————————————————
+    // AQUI ESTÁ A MUDANÇA:
+    // ao invés de construir uma string, passe o próprio Date
+    const searchCriteria = [
+      ['FROM', 'noreply@tm.openai.com'],
+      ['SINCE', yesterday]
+    ];
+    // ————————————————
 
-    const codes = [];
+    const messages = await connection.search(searchCriteria, {
+      bodies: ['HEADER', 'TEXT'],
+      struct: true
+    });
+
+    // Ordena do mais novo para o mais antigo
     messages.sort((a, b) => b.attributes.date - a.attributes.date);
 
+    const codes = [];
     for (const msg of messages) {
-      // Get raw body
+      // pega o corpo
       let body = '';
-      const textPart = imaps.getParts(msg.attributes.struct).find(p => p.type === 'text' && !p.disposition);
+      const textPart = imaps.getParts(msg.attributes.struct)
+        .find(p => p.type === 'text' && !p.disposition);
       if (textPart) {
         body = await connection.getPartData(msg, textPart);
       } else {
@@ -167,43 +178,38 @@ async function fetchImapCodes(db, email, limit = 5) {
         body = text ? text.body : '';
       }
 
-      // Decode body
+      // extrai o número de 6 dígitos
       const parsed = await simpleParser(body).catch(() => ({}));
       const content = parsed.text || parsed.html || body;
-      const match = content.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
-      if (!match) continue;
+      const mCode = content.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
+      if (!mCode) continue;
 
-      // Extract email from headers
-      const headerPart = msg.parts.find(p => p.which === 'HEADER');
-      const headerText = headerPart ? headerPart.body : '';
+      // extrai o e-mail do header
+      const headerText = msg.parts.find(p => p.which === 'HEADER').body;
       let emailAddr = '';
       let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
       if (m) {
         for (const fwd of m[1].split(',')) {
-          const trimmed = fwd.trim();
-          if (trimmed.includes('@') && trimmed !== 'aanniitaas@gmail.com') {
-            emailAddr = trimmed;
+          const t = fwd.trim();
+          if (t.includes('@') && t !== 'aanniitaas@gmail.com') {
+            emailAddr = t;
             break;
           }
         }
       }
-
       if (!emailAddr) {
         m = /Delivered-To:\s*(.+)/i.exec(headerText);
         if (m) emailAddr = m[1].trim();
       }
-
       if (!emailAddr) {
         m = /To:\s*(.+)/i.exec(headerText);
         if (m) emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
       }
+      emailAddr = emailAddr.replace(/\s*aanniitaas@gmail.com\s*/i, '').trim();
 
-      if (emailAddr.includes('aanniitaas@gmail.com')) {
-        emailAddr = emailAddr.replace(/\s*aanniitaas@gmail.com\s*/i, '').trim();
-      }
-
+      // só inclui se bater com o parâmetro `email` (ou se email === '')
       if (!email || emailAddr.toLowerCase() === email.toLowerCase()) {
-        codes.push({ code: match[1], email: emailAddr || 'E-mail não encontrado' });
+        codes.push({ code: mCode[1], email: emailAddr || 'E-mail não encontrado' });
         if (codes.length >= limit) break;
       }
     }
@@ -215,6 +221,7 @@ async function fetchImapCodes(db, email, limit = 5) {
     return [];
   }
 }
+
 
 // Check blocked IP middleware
 const checkBlockedIP = async (req, res, next) => {
