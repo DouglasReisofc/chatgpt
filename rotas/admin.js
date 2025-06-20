@@ -30,10 +30,20 @@ const adminLayout = async (req, res, next) => {
     try {
         const branding =
             (await req.db.collection('settings').findOne({ key: 'branding' })) ||
-            { panelLogoUrl: '', cardLogoUrl: '', href: 'https://www.contasvip.com.br/' };
+            {
+                panelLogoUrl: '',
+                cardLogoUrl: '',
+                href: 'https://www.contasvip.com.br/',
+                panelName: 'ChatGPT Codes'
+            };
         res.locals.branding = branding;
     } catch (err) {
-        res.locals.branding = { panelLogoUrl: '', cardLogoUrl: '', href: 'https://www.contasvip.com.br/' };
+        res.locals.branding = {
+            panelLogoUrl: '',
+            cardLogoUrl: '',
+            href: 'https://www.contasvip.com.br/',
+            panelName: 'ChatGPT Codes'
+        };
     }
     next();
 };
@@ -290,7 +300,12 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             { limit: 5 };
         const branding =
             (await db.collection('settings').findOne({ key: 'branding' })) ||
-            { panelLogoUrl: '', cardLogoUrl: '', href: 'https://www.contasvip.com.br/' };
+            {
+                panelLogoUrl: '',
+                cardLogoUrl: '',
+                href: 'https://www.contasvip.com.br/',
+                panelName: 'ChatGPT Codes'
+            };
         const reloadSetting =
             (await db.collection('settings').findOne({ key: 'autoReload' })) ||
             { enabled: true, limit: 3 };
@@ -672,10 +687,13 @@ router.post(
     ]),
     async (req, res) => {
         const db = req.db;
-        const { panelLogoUrl = '', cardLogoUrl = '', href = '' } = req.body;
+        const { panelLogoUrl = '', cardLogoUrl = '', href = '', panelName = '' } = req.body;
 
         try {
             const update = { href };
+            if (panelName) {
+                update.panelName = panelName;
+            }
             if (req.files && req.files.panelLogoFile && req.files.panelLogoFile[0]) {
                 update.panelLogoUrl = '/images/' + req.files.panelLogoFile[0].filename;
             } else {

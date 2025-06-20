@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ChatGPT Codes</title>
+    <title><%= branding.panelName || 'ChatGPT Codes' %></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
     <link href="/css/style.css" rel="stylesheet" />
@@ -81,27 +81,21 @@
 <body>
     <div class="container">
     <!-- Header Section -->
-    <div class="header-section">
-        <div class="d-flex justify-content-between align-items-center text-white">
-            <div class="d-flex align-items-center">
-                <% if (branding.panelLogoUrl) { %>
-                <a href="<%= branding.href %>" class="me-2">
-                    <img src="<%= branding.panelLogoUrl %>" alt="Logo" style="height:40px;border-radius:50%;">
-                </a>
-                <% } else { %>
-                    <i class="fas fa-robot me-3"></i>
-                <% } %>
-                <h1 class="mb-0">ChatGPT Codes</h1>
-                <p class="mb-0 opacity-75">Sistema de Códigos de Verificação</p>
-            </div>
-            <div>
-                <form id="logoutForm" action="/logout" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-outline-light">
-                        <i class="fas fa-sign-out-alt me-2"></i>Sair
-                    </button>
-                </form>
-            </div>
-        </div>
+    <div class="header-section text-center">
+        <a href="<%= branding.href %>" class="text-decoration-none text-white d-flex flex-column align-items-center">
+            <% if (branding.panelLogoUrl) { %>
+                <img src="<%= branding.panelLogoUrl %>" alt="Logo" style="height:40px;border-radius:50%;" class="mb-2">
+            <% } else { %>
+                <i class="fas fa-robot mb-2" style="font-size:40px;"></i>
+            <% } %>
+            <h1 class="mb-0"><%= branding.panelName || 'ChatGPT Codes' %></h1>
+        </a>
+        <p class="mb-2 opacity-75 text-white">Sistema de Códigos de Verificação</p>
+        <form id="logoutForm" action="/logout" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-outline-light">
+                <i class="fas fa-sign-out-alt me-2"></i>Sair
+            </button>
+        </form>
     </div>
 
     <!-- Update Button -->
@@ -161,7 +155,12 @@
     <div class="modal-dialog">
         <div class="modal-content rounded-4">
             <span id="copyModalCountdown" class="copy-countdown"></span>
-            <div class="modal-header">
+            <% if (branding.panelLogoUrl) { %>
+            <div class="text-center mt-3">
+                <img src="<%= branding.panelLogoUrl %>" alt="logo" style="height:50px;border-radius:50%;">
+            </div>
+            <% } %>
+            <div class="modal-header border-0 justify-content-center">
                 <h5 class="modal-title">Código copiado!</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

@@ -136,7 +136,8 @@ router.get('/', checkBlockedIP, async (req, res) => {
       (await db.collection('settings').findOne({ key: 'branding' })) || {
         panelLogoUrl: '',
         cardLogoUrl: '',
-        href: 'https://www.contasvip.com.br/'
+        href: 'https://www.contasvip.com.br/',
+        panelName: 'ChatGPT Codes'
       };
     return res.status(403).render('login', {
       title: 'Login',
@@ -537,7 +538,7 @@ router.get('/codes', async (req, res) => {
       };
 
     res.render('codes', {
-      title: 'ChatGPT Codes',
+      title: branding.panelName || 'ChatGPT Codes',
       codes,
       user: req.session.user,
       branding,

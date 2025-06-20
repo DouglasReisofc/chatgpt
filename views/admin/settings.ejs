@@ -57,6 +57,10 @@
         <h4 class="card-title mb-4">Branding</h4>
         <form id="brandingForm" enctype="multipart/form-data">
             <div class="mb-3">
+                <label for="panelName" class="form-label">Nome do Painel</label>
+                <input type="text" id="panelName" class="form-control" value="<%= branding.panelName %>">
+            </div>
+            <div class="mb-3">
                 <label for="panelLogoUrl" class="form-label">Logo do Painel (URL)</label>
                 <input type="text" id="panelLogoUrl" class="form-control" value="<%= branding.panelLogoUrl %>">
                 <input type="file" id="panelLogoFile" class="form-control mt-2">
@@ -104,6 +108,7 @@
         const codesLimitForm = document.getElementById('codesLimitForm');
         const codesLimitInput = document.getElementById('codesLimit');
         const brandingForm = document.getElementById('brandingForm');
+        const panelNameInput = document.getElementById('panelName');
         const panelLogoInput = document.getElementById('panelLogoUrl');
         const cardLogoInput = document.getElementById('cardLogoUrl');
         const panelLogoFile = document.getElementById('panelLogoFile');
@@ -136,6 +141,7 @@
             e.preventDefault();
             try {
                 const form = new FormData();
+                form.append('panelName', panelNameInput.value);
                 form.append('panelLogoUrl', panelLogoInput.value);
                 form.append('cardLogoUrl', cardLogoInput.value);
                 form.append('href', hrefInput.value);
