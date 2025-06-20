@@ -72,8 +72,12 @@ async function fetchImapCodes(db, email, limit = 5) {
     }
   };
 
+  let connection;
   try {
-    const connection = await imaps.connect(imapConfig);
+    connection = await imaps.connect(imapConfig);
+    connection.on('error', err => {
+      console.error('IMAP connection error:', err);
+    });
     await connection.openBox(mailbox);
     const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
     const searchCriteria = [
@@ -133,11 +137,16 @@ async function fetchImapCodes(db, email, limit = 5) {
       }
     }
 
-    connection.end();
     return codes;
   } catch (err) {
     console.error('Error fetching IMAP codes:', err);
     return [];
+  } finally {
+    if (connection) {
+      try {
+        connection.end();
+      } catch (_) {}
+    }
   }
 }
 
