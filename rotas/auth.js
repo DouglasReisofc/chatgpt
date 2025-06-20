@@ -409,6 +409,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       userAgent: req.headers['user-agent']
     };
     if (sessionLimitSetting.durationEnabled !== false) {
+      sessionData.sessionDuration = sessionDurationMinutes;
       sessionData.expiresAt = new Date(
         now.getTime() + sessionDurationMinutes * 60000
       );
@@ -434,10 +435,18 @@ router.get('/codes', async (req, res) => {
     console.log('📊 Loading codes page for user:', req.session.user.email);
 
     const { email, sessionId } = req.session.user;
-    await db.collection('active_sessions').updateOne(
-      { email, sessionId },
-      { $set: { lastActivity: new Date() } }
-    );
+    const sessionRecord = await db
+      .collection('active_sessions')
+      .findOne({ email, sessionId });
+    if (sessionRecord) {
+      const update = { $set: { lastActivity: new Date() } };
+      if (sessionRecord.sessionDuration) {
+        update.$set.expiresAt = new Date(
+          Date.now() + sessionRecord.sessionDuration * 60000
+        );
+      }
+      await db.collection('active_sessions').updateOne({ email, sessionId }, update);
+    }
 
     // Sample codes data (in a real implementation, this would come from email parsing)
     const codes = [
@@ -460,7 +469,8 @@ router.get('/codes', async (req, res) => {
     res.render('codes', {
       title: 'ChatGPT Codes',
       codes,
-      user: req.session.user
+      user: req.session.user,
+      expiresAt: sessionRecord && sessionRecord.expiresAt ? sessionRecord.expiresAt.toISOString() : null
     });
   } catch (error) {
     console.error('❌ Error loading codes page:', error);
@@ -514,10 +524,13 @@ router.use(async (req, res, next) => {
         }
       }
 
-
+      const update = { $set: { lastActivity: new Date() } };
+      if (sessionLimitSetting && sessionLimitSetting.durationEnabled !== false && sessionRecord.sessionDuration) {
+        update.$set.expiresAt = new Date(Date.now() + sessionRecord.sessionDuration * 60000);
+      }
       await req.db.collection('active_sessions').updateOne(
         { email, sessionId },
-        { $set: { lastActivity: new Date() } }
+        update
       );
 
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);

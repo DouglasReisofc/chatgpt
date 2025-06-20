@@ -167,4 +167,17 @@
     setInterval(function() {
         window.location.reload();
     }, 30000);
+
+    const expiresAt = <%- JSON.stringify(expiresAt || null) %>;
+    if (expiresAt) {
+        const expireTime = new Date(expiresAt).getTime();
+        function checkExpiration() {
+            if (Date.now() >= expireTime) {
+                window.location.href = '/?error=session_expired';
+            } else {
+                setTimeout(checkExpiration, 1000);
+            }
+        }
+        checkExpiration();
+    }
 </script>
