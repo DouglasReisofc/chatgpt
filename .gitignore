@@ -1,3 +1,4 @@
 mongodb-data/
 mongodb-logs/
 node_modules/
+mongodb-linux-*.tgz

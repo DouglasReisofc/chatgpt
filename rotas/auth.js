@@ -1,30 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const nodemailer = require('nodemailer');
-const imaps = require('imap-simple');
-const { simpleParser } = require('mailparser');
 const axios = require('axios');
 const net = require('net');
+const { getTransporter, fetchImapCodes } = require('../utils/emailUtils');
 
 
-// Helper to create SMTP transporter from stored settings
-async function getTransporter(db) {
-  const defaults = {
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    user: 'contactgestorvip@gmail.com',
-    pass: 'aoqmdezazknbbpg'
-  };
-  const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
-  const smtp = Object.assign({}, defaults, config.smtp);
-  return nodemailer.createTransport({
-    host: smtp.host,
-    port: smtp.port,
-    secure: !!smtp.secure,
-    auth: smtp.user ? { user: smtp.user, pass: smtp.pass } : undefined
-  });
-}
+
 
 // Generate a random 6-digit code
 function generateCode() {
@@ -114,69 +95,6 @@ async function getIPInfo(ip) {
     return { success: false, message: err.message };
   }
 }
-
-async function fetchImapCodes(db, email, limit = 5) {
-  const defaults = {
-    host: 'imap.uhserver.com',
-    port: 993,
-    tls: true,
-    user: 'financeiro@clubevip.net',
-    pass: 'CYRSG6vT86ZVfe'
-  };
-
-  // Puxa as configurações do banco, se existirem
-  const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
-  const imapCfg = Object.assign({}, defaults, config.imap);
-
-  const imapConfig = {
-    imap: {
-      user: imapCfg.user,
-      password: imapCfg.pass,
-      host: imapCfg.host,
-      port: imapCfg.port,
-      tls: !!imapCfg.tls,
-      tlsOptions: { rejectUnauthorized: false },
-      authTimeout: 10000,
-      connTimeout: 10000
-    }
-  };
-
-  try {
-    const connection = await imaps.connect(imapConfig);
-    await connection.openBox('INBOX');
-
-    // CRIA um objeto Date para "ontem"
-    const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
-
-    // ————————————————
-    // AQUI ESTÁ A MUDANÇA:
-    // ao invés de construir uma string, passe o próprio Date
-    const searchCriteria = [
-      ['FROM', 'noreply@tm.openai.com'],
-      ['SINCE', yesterday]
-    ];
-    // ————————————————
-
-    const messages = await connection.search(searchCriteria, {
-      bodies: ['HEADER', 'TEXT'],
-      struct: true
-    });
-
-    // Ordena do mais novo para o mais antigo
-    messages.sort((a, b) => b.attributes.date - a.attributes.date);
-
-    const codes = [];
-    for (const msg of messages) {
-      // pega o corpo
-      let body = '';
-      const textPart = imaps.getParts(msg.attributes.struct)
-        .find(p => p.type === 'text' && !p.disposition);
-      if (textPart) {
-        body = await connection.getPartData(msg, textPart);
-      } else {
-        const text = msg.parts.find(p => p.which === 'TEXT');
-        body = text ? text.body : '';
-      }
 
       // extrai o número de 6 dígitos
       const parsed = await simpleParser(body).catch(() => ({}));

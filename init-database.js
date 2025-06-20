@@ -21,6 +21,7 @@ async function initializeDatabase() {
         await db.createCollection('admin_users');
         await db.createCollection('active_sessions');
         await db.createCollection('blocked_ips');
+        await db.createCollection('codes');
         await db.createCollection('settings');
 
         // Create indexes
@@ -47,6 +48,7 @@ async function initializeDatabase() {
             { address: 1 },
             { unique: true }
         );
+        await db.collection('codes').createIndex({ fetchedAt: 1 });
         await db.collection('settings').createIndex(
             { key: 1 },
             { unique: true }
