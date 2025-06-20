@@ -1,0 +1,16 @@
+<div class="offcanvas offcanvas-start sidebar" tabindex="-1" id="sidebar">
+  <div class="offcanvas-header d-md-none">
+    <h5 class="offcanvas-title">Menu</h5>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body p-0">
+    <nav class="nav flex-column">
+      <a href="/admin/dashboard" class="nav-link <%= page==='dashboard'?'active':'' %>"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+      <a href="/admin/users" class="nav-link <%= page==='users'?'active':'' %>"><i class="fas fa-users me-2"></i>Usuários</a>
+      <a href="/admin/blocked-ips" class="nav-link <%= page==='blocked-ips'?'active':'' %>"><i class="fas fa-ban me-2"></i>IPs Bloqueados</a>
+      <a href="/admin/logs" class="nav-link <%= page==='logs'?'active':'' %>"><i class="fas fa-file-alt me-2"></i>Logs</a>
+      <a href="/admin/settings" class="nav-link <%= page==='settings'?'active':'' %>"><i class="fas fa-cog me-2"></i>Configurações</a>
+      <a href="/admin/logout" class="nav-link text-danger mt-auto"><i class="fas fa-sign-out-alt me-2"></i>Sair</a>
+    </nav>
+  </div>
+</div>

@@ -14,7 +14,7 @@ const requireAdmin = async (req, res, next) => {
 
 // Use custom admin layout for dashboard pages
 const adminLayout = (req, res, next) => {
-    res.locals.layout = 'layouts/admin';
+    res.locals.layout = 'layouts/admin/main';
     next();
 };
 

@@ -12,16 +12,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (sidebar) {
-    const updateSidebar = () => {
-      if (window.innerWidth >= 768) {
-        sidebar.classList.add('show');
-      } else {
-        sidebar.classList.remove('show');
-      }
-    };
-
-    updateSidebar();
-    window.addEventListener('resize', updateSidebar);
-  }
+  // Sidebar visibility is handled purely with CSS
 });
