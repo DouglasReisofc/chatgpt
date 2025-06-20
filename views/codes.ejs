@@ -84,9 +84,11 @@
                 <p class="mb-0 opacity-75">Sistema de Códigos de Verificação</p>
             </div>
             <div>
-                <a href="/logout" class="btn btn-outline-light">
-                    <i class="fas fa-sign-out-alt me-2"></i>Sair
-                </a>
+                <form id="logoutForm" action="/logout" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-outline-light">
+                        <i class="fas fa-sign-out-alt me-2"></i>Sair
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -171,9 +173,10 @@
     const expiresAt = <%- JSON.stringify(expiresAt || null) %>;
     if (expiresAt) {
         const expireTime = new Date(expiresAt).getTime();
-        function checkExpiration() {
+        async function checkExpiration() {
             if (Date.now() >= expireTime) {
-                window.location.href = '/?error=session_expired';
+                await fetch('/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expired: true }) });
+                window.location.href = '/';
             } else {
                 setTimeout(checkExpiration, 1000);
             }

@@ -4,7 +4,9 @@
             <div class="alert alert-danger text-center">
                 <h4>Limite de acesso atingido</h4>
                 <p>Você não pode mais acessar esta página.</p>
-                <a href="/logout" class="btn btn-primary mt-3">Sair</a>
+                <form action="/logout" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-primary mt-3">Sair</button>
+                </form>
             </div>
         </div>
     </div>

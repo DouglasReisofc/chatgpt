@@ -135,11 +135,8 @@ router.get('/', checkBlockedIP, async (req, res) => {
   const messages =
     (await db.collection('settings').findOne({ key: 'messages' })) || {};
 
-  let errorMessage = null;
-  if (req.query.error === 'session_expired') {
-    errorMessage =
-      messages.sessionExpired || 'Sessão expirada. Faça login novamente.';
-  }
+  let errorMessage = req.session.errorMessage || null;
+  delete req.session.errorMessage;
 
   if (req.isIPBlocked) {
     errorMessage = req.blockedMessage;
@@ -158,7 +155,7 @@ router.get('/', checkBlockedIP, async (req, res) => {
 });
 
 router.post('/api/login', checkBlockedIP, async (req, res) => {
-  const { email } = req.body;
+  const email = req.body.email ? String(req.body.email).trim() : '';
   console.log('📧 Login attempt for email:', email);
 
   if (req.isIPBlocked) {
@@ -260,7 +257,9 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
 });
 
 router.post('/api/verify', checkBlockedIP, async (req, res) => {
-  const { email, code } = req.body;
+  let { email, code } = req.body;
+  email = email ? String(email).trim() : '';
+  code = code ? String(code).replace(/\D/g, '').trim() : '';
   console.log('🔍 Verification attempt:', { email, code });
 
   if (req.isIPBlocked) {
@@ -289,7 +288,9 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     // Find verification code in MongoDB
     console.log('🔍 Searching for verification code...');
-    const verificationRecord = await db.collection('verification_codes').findOne({ email, code });
+    const verificationRecord = await db
+      .collection('verification_codes')
+      .findOne({ email, code });
     console.log('📝 Verification record found:', verificationRecord ? 'Yes' : 'No');
 
     const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
@@ -478,7 +479,7 @@ router.get('/codes', async (req, res) => {
   }
 });
 
-router.get('/logout', async (req, res) => {
+async function handleLogout(req, res) {
   if (req.session.user) {
     const { email, sessionId } = req.session.user;
     console.log('👋 User logout:', email);
@@ -495,9 +496,23 @@ router.get('/logout', async (req, res) => {
     }
   }
 
-  req.session.destroy();
-  res.redirect('/');
-});
+  const expired = req.body && req.body.expired;
+  if (expired) {
+    const messages = (await req.db.collection('settings').findOne({ key: 'messages' })) || {};
+    req.session.errorMessage = messages.sessionExpired || 'Sessão expirada. Faça login novamente.';
+  }
+  delete req.session.user;
+  req.session.save(() => {
+    if (req.xhr || req.headers.accept === 'application/json') {
+      res.json({ success: true });
+    } else {
+      res.redirect('/');
+    }
+  });
+}
+
+router.post('/logout', handleLogout);
+router.get('/logout', handleLogout);
 
 // Middleware to check session validity and update last activity
 router.use(async (req, res, next) => {
@@ -509,18 +524,25 @@ router.use(async (req, res, next) => {
 
       const sessionLimitSetting = await req.db.collection('settings').findOne({ key: 'sessionLimit' });
 
+      const messages =
+        (await req.db.collection('settings').findOne({ key: 'messages' })) || {};
+
       if (!sessionRecord) {
         console.log('❌ Invalid session detected:', email);
-        req.session.destroy();
-        return res.redirect('/?error=session_expired');
+        req.session.errorMessage =
+          messages.sessionExpired || 'Sessão expirada. Faça login novamente.';
+        delete req.session.user;
+        return req.session.save(() => res.redirect('/'));
       }
 
       if (sessionLimitSetting && sessionLimitSetting.durationEnabled !== false) {
         if (sessionRecord.expiresAt && new Date() > sessionRecord.expiresAt) {
           await req.db.collection('active_sessions').deleteOne({ email, sessionId });
           console.log('⏰ Session expired for:', email);
-          req.session.destroy();
-          return res.redirect('/?error=session_expired');
+          req.session.errorMessage =
+            messages.sessionExpired || 'Sessão expirada. Faça login novamente.';
+          delete req.session.user;
+          return req.session.save(() => res.redirect('/'));
         }
       }
 
