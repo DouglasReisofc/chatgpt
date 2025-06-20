@@ -449,7 +449,18 @@ router.get('/codes', async (req, res) => {
     const limitSetting =
       (await db.collection('settings').findOne({ key: 'codeDisplayLimit' })) ||
       { limit: 5 };
-    const codes = await fetchImapCodes(db, email, limitSetting.limit || 5);
+    const limit = limitSetting.limit || 5;
+
+    // Fetch latest codes from IMAP and store them in DB
+    await fetchImapCodes(db, email, limit);
+
+    // Retrieve the most recent codes limited by admin setting
+    const codes = await db
+      .collection('codes')
+      .find()
+      .sort({ fetchedAt: -1 })
+      .limit(limit)
+      .toArray();
 
     console.log('🔢 Codes available:', codes.length);
 
@@ -457,7 +468,10 @@ router.get('/codes', async (req, res) => {
       title: 'ChatGPT Codes',
       codes,
       user: req.session.user,
-      expiresAt: sessionRecord && sessionRecord.expiresAt ? sessionRecord.expiresAt.toISOString() : null
+      expiresAt:
+        sessionRecord && sessionRecord.expiresAt
+          ? sessionRecord.expiresAt.toISOString()
+          : null
     });
   } catch (error) {
     console.error('❌ Error loading codes page:', error);
