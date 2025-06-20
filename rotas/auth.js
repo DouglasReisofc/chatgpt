@@ -163,9 +163,10 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
     }
 
     const sessionLimitSetting = await db.collection('settings').findOne({ key: 'sessionLimit' });
-    const sessionLimitEnabled = !sessionLimitSetting || sessionLimitSetting.enabled !== false;
+    const limitEnabled =
+      !sessionLimitSetting || sessionLimitSetting.limitEnabled !== false;
 
-    if (sessionLimitEnabled) {
+    if (limitEnabled) {
       const activeSessions = await db
         .collection('active_sessions')
         .countDocuments({ email });
@@ -283,7 +284,8 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     const user = await db.collection('users').findOne({ email });
     const sessionLimitSetting =
       (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
-        enabled: true,
+        limitEnabled: true,
+        durationEnabled: true,
         maxSessions: 3,
         sessionDuration: 5
       };
@@ -319,7 +321,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       ipInfo
     });
 
-    if (sessionLimitSetting.enabled !== false) {
+    if (sessionLimitSetting.limitEnabled !== false) {
       const activeSessions = await db.collection('active_sessions').countDocuments({ email });
       const SESSION_LIMIT = currentMax;
 
@@ -357,8 +359,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       ip,
       userAgent: req.headers['user-agent']
     };
-    if (sessionLimitSetting.enabled !== false) {
-      sessionData.expiresAt = new Date(now.getTime() + sessionDurationMinutes * 60000);
+    if (sessionLimitSetting.durationEnabled !== false) {
+      sessionData.expiresAt = new Date(
+        now.getTime() + sessionDurationMinutes * 60000
+      );
     }
     await db.collection('active_sessions').insertOne(sessionData);
 
@@ -452,7 +456,7 @@ router.use(async (req, res, next) => {
         return res.redirect('/?error=session_expired');
       }
 
-      if (sessionLimitSetting && sessionLimitSetting.enabled !== false) {
+      if (sessionLimitSetting && sessionLimitSetting.durationEnabled !== false) {
         if (sessionRecord.expiresAt && new Date() > sessionRecord.expiresAt) {
           await req.db.collection('active_sessions').deleteOne({ email, sessionId });
           console.log('⏰ Session expired for:', email);

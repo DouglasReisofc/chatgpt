@@ -69,11 +69,14 @@ async function initializeDatabase() {
         }
 
         // Create default session limit settings
-        const sessionLimitExists = await db.collection('settings').findOne({ key: 'sessionLimit' });
+        const sessionLimitExists = await db
+            .collection('settings')
+            .findOne({ key: 'sessionLimit' });
         if (!sessionLimitExists) {
             await db.collection('settings').insertOne({
                 key: 'sessionLimit',
-                enabled: true,
+                limitEnabled: true,
+                durationEnabled: true,
                 maxSessions: 3,
                 sessionDuration: 5,
                 createdAt: new Date()

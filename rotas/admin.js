@@ -206,7 +206,13 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
 router.get('/code-settings', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
-        const sessionLimit = await db.collection('settings').findOne({ key: 'sessionLimit' }) || { enabled: true, maxSessions: 3, sessionDuration: 5 };
+        const sessionLimit =
+            (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
+                limitEnabled: true,
+                durationEnabled: true,
+                maxSessions: 3,
+                sessionDuration: 5
+            };
         res.render('admin/code_settings', {
             title: 'Limite de Sessões',
             sessionLimit,
@@ -220,7 +226,13 @@ router.get('/code-settings', requireAdmin, adminLayout, async (req, res) => {
 
 // Save global session settings
 router.post('/settings/session-limit', requireAdmin, async (req, res) => {
-    const { enabled, maxSessions, sessionDuration, applyToAll } = req.body;
+    const {
+        limitEnabled,
+        durationEnabled,
+        maxSessions,
+        sessionDuration,
+        applyToAll
+    } = req.body;
     const db = req.db;
 
     if (
@@ -233,7 +245,14 @@ router.post('/settings/session-limit', requireAdmin, async (req, res) => {
     try {
         await db.collection('settings').updateOne(
             { key: 'sessionLimit' },
-            { $set: { enabled: !!enabled, maxSessions, sessionDuration } },
+            {
+                $set: {
+                    limitEnabled: !!limitEnabled,
+                    durationEnabled: !!durationEnabled,
+                    maxSessions,
+                    sessionDuration
+                }
+            },
             { upsert: true }
         );
 
@@ -334,7 +353,13 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
             .sort({ lastLogin: -1 })
             .toArray();
 
-        const globalSettings = await db.collection('settings').findOne({ key: 'sessionLimit' }) || { enabled: true, maxSessions: 3, sessionDuration: 5 };
+        const globalSettings =
+            (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
+                limitEnabled: true,
+                durationEnabled: true,
+                maxSessions: 3,
+                sessionDuration: 5
+            };
 
         res.render('admin/users', {
             title: 'Manage Users',
@@ -428,11 +453,13 @@ router.post('/users/:email/reset-session', requireAdmin, async (req, res) => {
         await db.collection('verification_codes').deleteMany({ email });
 
         // Restore the user's session limits to the global defaults
-        const globalSettings = await db.collection('settings').findOne({ key: 'sessionLimit' }) || {
-            enabled: true,
-            maxSessions: 3,
-            sessionDuration: 5
-        };
+        const globalSettings =
+            (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
+                limitEnabled: true,
+                durationEnabled: true,
+                maxSessions: 3,
+                sessionDuration: 5
+            };
 
         await db.collection('users').updateOne(
             { email },

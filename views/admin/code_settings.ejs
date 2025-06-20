@@ -5,8 +5,12 @@
         <h4 class="card-title mb-4">Limite de Sessões</h4>
         <form id="sessionLimitForm">
             <div class="form-check form-switch mb-3">
-                <input class="form-check-input" type="checkbox" id="sessionLimitEnabled" <%= sessionLimit.enabled ? 'checked' : '' %>>
-                <label class="form-check-label" for="sessionLimitEnabled">Ativar Limite de Sessões</label>
+                <input class="form-check-input" type="checkbox" id="limitEnabled" <%= sessionLimit.limitEnabled ? 'checked' : '' %>>
+                <label class="form-check-label" for="limitEnabled">Ativar Limite de Sessões</label>
+            </div>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="durationEnabled" <%= sessionLimit.durationEnabled ? 'checked' : '' %>>
+                <label class="form-check-label" for="durationEnabled">Ativar Expiração de Sessão</label>
             </div>
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
@@ -27,20 +31,27 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const sessionForm = document.getElementById('sessionLimitForm');
-        const sessionEnabled = document.getElementById('sessionLimitEnabled');
+        const limitEnabled = document.getElementById('limitEnabled');
+        const durationEnabled = document.getElementById('durationEnabled');
         const sessionMax = document.getElementById('sessionMax');
         const sessionDuration = document.getElementById('sessionDuration');
 
         sessionForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            const enabled = sessionEnabled.checked;
+            const limitFlag = limitEnabled.checked;
+            const durationFlag = durationEnabled.checked;
             const maxSessions = parseInt(sessionMax.value);
             const duration = parseInt(sessionDuration.value);
             try {
                 const res = await fetch('/admin/settings/session-limit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled, maxSessions, sessionDuration: duration })
+                    body: JSON.stringify({
+                        limitEnabled: limitFlag,
+                        durationEnabled: durationFlag,
+                        maxSessions,
+                        sessionDuration: duration
+                    })
                 });
                 if (res.ok) {
                     show('sessionLimitMessage', 'Configuração atualizada', 'success');
