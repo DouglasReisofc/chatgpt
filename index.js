@@ -1,9 +1,5 @@
 const express = require('express');
-const imaps = require('imap-simple');
 const cors = require('cors');
-const fs = require('fs');
-const axios = require('axios');
-const nodemailer = require('nodemailer');
 const path = require('path');
 const { MongoClient } = require('mongodb');
 const session = require('express-session');
