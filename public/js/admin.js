@@ -13,5 +13,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Sidebar visibility is handled purely with CSS media queries
+  const sidebar = document.getElementById('sidebar');
+
+  function updateSidebar() {
+    if (!sidebar) return;
+    if (window.innerWidth >= 768) {
+      sidebar.classList.add('show');
+    } else {
+      sidebar.classList.remove('show');
+    }
+  }
+
+  updateSidebar();
+  window.addEventListener('resize', updateSidebar);
 });
