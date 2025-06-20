@@ -1,14 +1,29 @@
+<style>
+    :root {
+        --bg-start: <%= colors.bgStart %>;
+        --bg-end: <%= colors.bgEnd %>;
+        --card-start: <%= colors.cardStart %>;
+        --card-end: <%= colors.cardEnd %>;
+        --button-start: <%= colors.buttonStart %>;
+        --button-end: <%= colors.buttonEnd %>;
+        --update-start: <%= colors.updateStart %>;
+        --update-end: <%= colors.updateEnd %>;
+        --text-color: <%= colors.textColor %>;
+    }
+</style>
 <div class="container">
     <div class="row justify-content-center mt-5">
         <div class="col-md-6 col-lg-4">
             <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white text-center py-4">
+                <div class="card-header text-white text-center py-4" style="background: linear-gradient(135deg, var(--card-start), var(--card-end));">
                     <% if (branding.panelLogoUrl) { %>
-                        <a href="<%= branding.href %>">
-                            <img src="<%= branding.panelLogoUrl %>" alt="Logo" style="height:60px;border-radius:50%;" class="mb-2">
+                        <a href="<%= branding.href %>" class="d-block mb-2">
+                            <img src="<%= branding.panelLogoUrl %>" alt="Logo" style="height:60px;border-radius:50%;">
                         </a>
                     <% } %>
-                    <h4 class="mb-0">ChatGPT Code System</h4>
+                    <a href="<%= branding.href %>" class="text-white text-decoration-none">
+                        <h4 class="mb-0"><%= branding.panelName || 'ChatGPT Codes' %></h4>
+                    </a>
                     <p class="small mb-0">Sistema de Códigos</p>
                 </div>
                 <div class="card-body p-4">

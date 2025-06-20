@@ -1,6 +1,18 @@
+:root {
+    --bg-start: #007bff;
+    --bg-end: #00bcd4;
+    --card-start: #00d4aa;
+    --card-end: #00a085;
+    --button-start: #007bff;
+    --button-end: #0056b3;
+    --update-start: #ff6b6b;
+    --update-end: #ee5a24;
+    --text-color: #333;
+}
+
 /* Global Styles */
 body {
-    background: linear-gradient(135deg, #007bff 0%, #00bcd4 100%);
+    background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
     min-height: 100vh;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -33,7 +45,7 @@ body {
 }
 
 .code-card-header {
-    background: linear-gradient(135deg, #00d4aa, #00a085);
+    background: linear-gradient(135deg, var(--card-start), var(--card-end));
     color: white;
     padding: 20px;
     text-align: center;
@@ -60,14 +72,14 @@ body {
 .user-email {
     font-size: 18px;
     font-weight: 700;
-    color: #000;
+    color: var(--text-color);
     margin-bottom: 15px;
     word-break: break-all;
 }
 
 .code-display {
     background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-    border: 2px dashed #00d4aa;
+    border: 2px dashed var(--card-start);
     border-radius: 10px;
     padding: 15px;
     margin: 20px 0;
@@ -79,7 +91,7 @@ body {
 }
 
 .copy-btn {
-    background: linear-gradient(135deg, #007bff, #0056b3);
+    background: linear-gradient(135deg, var(--button-start), var(--button-end));
     border: none;
     border-radius: 25px;
     padding: 12px 30px;
@@ -119,7 +131,7 @@ body {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    background: linear-gradient(135deg, var(--update-start), var(--update-end));
     color: white;
     border: none;
     border-radius: 50px;
@@ -155,7 +167,7 @@ body {
 .login-form h2 {
     text-align: center;
     margin-bottom: 30px;
-    color: #333;
+    color: var(--text-color);
 }
 
 .form-control {
@@ -167,5 +179,5 @@ body {
 
 .form-control:focus {
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-    border-color: #007bff;
+    border-color: var(--button-start);
 }

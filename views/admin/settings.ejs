@@ -80,6 +80,42 @@
     </div>
 </div>
 
+<div class="card settings-card mt-4">
+    <div class="card-body">
+        <h4 class="card-title mb-4">Paleta de Cores</h4>
+        <form id="colorsForm">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Cor de Fundo Início</label>
+                    <input type="color" id="bgStart" class="form-control form-control-color" value="<%= colors.bgStart %>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Cor de Fundo Fim</label>
+                    <input type="color" id="bgEnd" class="form-control form-control-color" value="<%= colors.bgEnd %>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Início do Card</label>
+                    <input type="color" id="cardStart" class="form-control form-control-color" value="<%= colors.cardStart %>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Fim do Card</label>
+                    <input type="color" id="cardEnd" class="form-control form-control-color" value="<%= colors.cardEnd %>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Botão Principal</label>
+                    <input type="color" id="buttonStart" class="form-control form-control-color" value="<%= colors.buttonStart %>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Botão Hover</label>
+                    <input type="color" id="buttonEnd" class="form-control form-control-color" value="<%= colors.buttonEnd %>">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Salvar</button>
+        </form>
+        <div id="colorsMessage" class="mt-3"></div>
+    </div>
+</div>
+
 <!-- Reset Logs Confirmation Modal -->
 <div class="modal fade" id="resetLogsModal" tabindex="-1">
     <div class="modal-dialog">
@@ -117,6 +153,26 @@
         const reloadForm = document.getElementById('reloadSettingsForm');
         const reloadEnabled = document.getElementById('reloadEnabled');
         const reloadLimit = document.getElementById('reloadLimit');
+        const colorsForm = document.getElementById('colorsForm');
+        const bgStart = document.getElementById('bgStart');
+        const bgEnd = document.getElementById('bgEnd');
+        const cardStart = document.getElementById('cardStart');
+        const cardEnd = document.getElementById('cardEnd');
+        const buttonStart = document.getElementById('buttonStart');
+        const buttonEnd = document.getElementById('buttonEnd');
+
+        function updatePreview() {
+            document.documentElement.style.setProperty('--bg-start', bgStart.value);
+            document.documentElement.style.setProperty('--bg-end', bgEnd.value);
+            document.documentElement.style.setProperty('--card-start', cardStart.value);
+            document.documentElement.style.setProperty('--card-end', cardEnd.value);
+            document.documentElement.style.setProperty('--button-start', buttonStart.value);
+            document.documentElement.style.setProperty('--button-end', buttonEnd.value);
+        }
+        [bgStart, bgEnd, cardStart, cardEnd, buttonStart, buttonEnd].forEach(el => {
+            el.addEventListener('input', updatePreview);
+        });
+        updatePreview();
 
         codesLimitForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -179,6 +235,32 @@
                 }
             } catch (err) {
                 showMessage('reloadSettingsMessage', 'Erro ao salvar', 'danger');
+            }
+        });
+
+        colorsForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const body = {
+                bgStart: bgStart.value,
+                bgEnd: bgEnd.value,
+                cardStart: cardStart.value,
+                cardEnd: cardEnd.value,
+                buttonStart: buttonStart.value,
+                buttonEnd: buttonEnd.value
+            };
+            try {
+                const res = await fetch('/admin/settings/colors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    showMessage('colorsMessage', 'Cores salvas', 'success');
+                } else {
+                    showMessage('colorsMessage', 'Erro ao salvar', 'danger');
+                }
+            } catch (err) {
+                showMessage('colorsMessage', 'Erro ao salvar', 'danger');
             }
         });
 

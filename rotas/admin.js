@@ -37,12 +37,36 @@ const adminLayout = async (req, res, next) => {
                 panelName: 'ChatGPT Codes'
             };
         res.locals.branding = branding;
+        const colors =
+            (await req.db.collection('settings').findOne({ key: 'colors' })) || {
+                bgStart: '#007bff',
+                bgEnd: '#00bcd4',
+                cardStart: '#00d4aa',
+                cardEnd: '#00a085',
+                buttonStart: '#007bff',
+                buttonEnd: '#0056b3',
+                updateStart: '#ff6b6b',
+                updateEnd: '#ee5a24',
+                textColor: '#333'
+            };
+        res.locals.colors = colors;
     } catch (err) {
         res.locals.branding = {
             panelLogoUrl: '',
             cardLogoUrl: '',
             href: 'https://www.contasvip.com.br/',
             panelName: 'ChatGPT Codes'
+        };
+        res.locals.colors = {
+            bgStart: '#007bff',
+            bgEnd: '#00bcd4',
+            cardStart: '#00d4aa',
+            cardEnd: '#00a085',
+            buttonStart: '#007bff',
+            buttonEnd: '#0056b3',
+            updateStart: '#ff6b6b',
+            updateEnd: '#ee5a24',
+            textColor: '#333'
         };
     }
     next();
@@ -306,6 +330,18 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
                 href: 'https://www.contasvip.com.br/',
                 panelName: 'ChatGPT Codes'
             };
+        const colors =
+            (await db.collection('settings').findOne({ key: 'colors' })) || {
+                bgStart: '#007bff',
+                bgEnd: '#00bcd4',
+                cardStart: '#00d4aa',
+                cardEnd: '#00a085',
+                buttonStart: '#007bff',
+                buttonEnd: '#0056b3',
+                updateStart: '#ff6b6b',
+                updateEnd: '#ee5a24',
+                textColor: '#333'
+            };
         const reloadSetting =
             (await db.collection('settings').findOne({ key: 'autoReload' })) ||
             { enabled: true, limit: 3 };
@@ -313,6 +349,7 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             title: 'Configurações do Sistema',
             codeLimit: codeLimitSetting.limit || 5,
             branding,
+            colors,
             reload: {
                 enabled: reloadSetting.enabled !== false,
                 limit: reloadSetting.limit || 3
@@ -717,6 +754,46 @@ router.post(
         }
     }
 );
+
+// Update color palette settings
+router.post('/settings/colors', requireAdmin, async (req, res) => {
+    const db = req.db;
+    const {
+        bgStart = '#007bff',
+        bgEnd = '#00bcd4',
+        cardStart = '#00d4aa',
+        cardEnd = '#00a085',
+        buttonStart = '#007bff',
+        buttonEnd = '#0056b3',
+        updateStart = '#ff6b6b',
+        updateEnd = '#ee5a24',
+        textColor = '#333'
+    } = req.body;
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'colors' },
+            {
+                $set: {
+                    bgStart,
+                    bgEnd,
+                    cardStart,
+                    cardEnd,
+                    buttonStart,
+                    buttonEnd,
+                    updateStart,
+                    updateEnd,
+                    textColor
+                }
+            },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving colors:', error);
+        res.status(500).json({ error: 'Failed to save colors' });
+    }
+});
 
 // List all users
 router.get('/users', requireAdmin, adminLayout, async (req, res) => {

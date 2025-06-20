@@ -4,6 +4,18 @@ const axios = require('axios');
 const net = require('net');
 const { getTransporter, fetchImapCodes } = require('../utils/emailUtils');
 
+const DEFAULT_COLORS = {
+  bgStart: '#007bff',
+  bgEnd: '#00bcd4',
+  cardStart: '#00d4aa',
+  cardEnd: '#00a085',
+  buttonStart: '#007bff',
+  buttonEnd: '#0056b3',
+  updateStart: '#ff6b6b',
+  updateEnd: '#ee5a24',
+  textColor: '#333'
+};
+
 
 
 
@@ -139,10 +151,14 @@ router.get('/', checkBlockedIP, async (req, res) => {
         href: 'https://www.contasvip.com.br/',
         panelName: 'ChatGPT Codes'
       };
+    const colors =
+      (await db.collection('settings').findOne({ key: 'colors' })) ||
+      DEFAULT_COLORS;
     return res.status(403).render('login', {
       title: 'Login',
       user: null,
       branding,
+      colors,
       errorMessage
     });
   }
@@ -153,11 +169,14 @@ router.get('/', checkBlockedIP, async (req, res) => {
       cardLogoUrl: '',
       href: 'https://www.contasvip.com.br/'
     };
+  const colors =
+    (await db.collection('settings').findOne({ key: 'colors' })) || DEFAULT_COLORS;
 
   res.render('login', {
     title: 'Login',
     user: null,
     branding,
+    colors,
     errorMessage
   });
 });
@@ -531,6 +550,8 @@ router.get('/codes', async (req, res) => {
         cardLogoUrl: '',
         href: 'https://www.contasvip.com.br/'
       };
+    const colors =
+      (await db.collection('settings').findOne({ key: 'colors' })) || DEFAULT_COLORS;
     const reloadSetting =
       (await db.collection('settings').findOne({ key: 'autoReload' })) || {
         enabled: true,
@@ -542,6 +563,7 @@ router.get('/codes', async (req, res) => {
       codes,
       user: req.session.user,
       branding,
+      colors,
       autoReload: {
         enabled:
           reloadSetting.enabled !== false &&

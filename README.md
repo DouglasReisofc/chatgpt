@@ -101,6 +101,7 @@ chatgpt-codes-system/
 - ✅ Logs de acesso
 - ✅ Upload local de logos para personalização
 - ✅ Nome do painel personalizável
+- ✅ Paleta de cores configurável
 - ✅ Controle de recarregamento automático da página de códigos com limite por usuário
 - ✅ MongoDB local automático (sem instalação manual!)
 - ✅ Inicialização automática do banco de dados

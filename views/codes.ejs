@@ -8,8 +8,19 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
     <link href="/css/style.css" rel="stylesheet" />
     <style>
+        :root {
+            --bg-start: <%= colors.bgStart %>;
+            --bg-end: <%= colors.bgEnd %>;
+            --card-start: <%= colors.cardStart %>;
+            --card-end: <%= colors.cardEnd %>;
+            --button-start: <%= colors.buttonStart %>;
+            --button-end: <%= colors.buttonEnd %>;
+            --update-start: <%= colors.updateStart %>;
+            --update-end: <%= colors.updateEnd %>;
+            --text-color: <%= colors.textColor %>;
+        }
         body {
-            background: linear-gradient(135deg, #007bff 0%, #00bcd4 100%);
+            background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 20px;
@@ -35,24 +46,24 @@
         .chatgpt-icon svg {
             width: 100%;
             height: 100%;
-            fill: #10a37f;
+            fill: var(--card-start);
         }
         .user-email {
             font-size: 1.2rem;
             font-weight: 600;
             margin-bottom: 15px;
             word-break: break-word;
-            color: #333;
+            color: var(--text-color);
         }
         .code-text {
             font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: 20px;
-            color: #555;
+            color: var(--text-color);
             font-family: 'Courier New', monospace;
         }
         .btn-copy {
-            background-color: #007bff;
+            background-color: var(--button-start);
             border: none;
             color: white;
             padding: 10px 25px;
@@ -62,7 +73,7 @@
             transition: background-color 0.3s ease;
         }
         .btn-copy:hover {
-            background-color: #0056b3;
+            background-color: var(--button-end);
         }
         #copyModal .modal-content {
             border-radius: 25px;
