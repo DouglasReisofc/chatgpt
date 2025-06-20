@@ -142,35 +142,59 @@ async function fetchImapCodes(db, email, limit = 5) {
     await connection.openBox('INBOX');
 
     const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const sinceDate = `${yesterday.getDate()}-${months[yesterday.getMonth()]}-${yesterday.getFullYear()}`;
+
     const searchCriteria = [
       ['FROM', 'noreply@tm.openai.com'],
-      ['TO', email],
-      ['SINCE', yesterday.toISOString().slice(0,10)]
+      ['SINCE', sinceDate]
     ];
-    const fetchOptions = { bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)', 'TEXT'], struct: true };
+    const fetchOptions = { bodies: ['HEADER', 'TEXT'], struct: true };
 
     const messages = await connection.search(searchCriteria, fetchOptions);
     const codes = [];
 
     messages
-      .sort((a, b) => b.attributes.uid - a.attributes.uid)
+      .sort((a, b) => b.attributes.date - a.attributes.date)
       .slice(0, limit)
       .forEach(item => {
         const textPart = item.parts.find(p => p.which === 'TEXT');
-        const header = item.parts.find(p => p.which.startsWith('HEADER'));
-        const id = item.attributes.uid;
-        const body = 'Imap-Id: ' + id + '\r\n' + (textPart ? textPart.body : '');
+        const headerPart = item.parts.find(p => p.which === 'HEADER');
+        const body = textPart ? textPart.body : '';
+        const headerText = headerPart ? headerPart.body : '';
+
         const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
-        if (match) {
-          let to = '';
-          if (header && header.body && header.body.to) {
-            to = Array.isArray(header.body.to) ? header.body.to[0] : header.body.to;
-            const m = /<([^>]+)>/.exec(to);
-            if (m) to = m[1];
+        if (!match) return;
+
+        let emailAddr = '';
+        let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
+        if (m) {
+          for (const part of m[1].split(',')) {
+            const trimmed = part.trim();
+            if (trimmed.includes('@') && trimmed !== 'aanniitaas@gmail.com') {
+              emailAddr = trimmed;
+              break;
+            }
           }
-          codes.push({ code: match[1], email: to });
+        }
+        if (!emailAddr) {
+          m = /Delivered-To:\s*(.+)/i.exec(headerText);
+          if (m) {
+            emailAddr = m[1].trim();
+          }
+        }
+        if (!emailAddr) {
+          m = /To:\s*(.+)/i.exec(headerText);
+          if (m) {
+            emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
+          }
+        }
+
+        if (!email || emailAddr.toLowerCase() === email.toLowerCase()) {
+          codes.push({ code: match[1], email: emailAddr });
         }
       });
+
     connection.end();
     return codes;
   } catch (err) {

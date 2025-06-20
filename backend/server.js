@@ -285,25 +285,48 @@ async function fetchEmails() {
 
     const delay = 24 * 3600 * 1000;
     const yesterday = new Date(Date.now() - delay);
-    const searchCriteria = [['FROM', 'noreply@tm.openai.com'], ['SINCE', yesterday.toISOString().slice(0,10)]];
-    const fetchOptions = { bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)', 'TEXT'], struct: true };
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const sinceDate = `${yesterday.getDate()}-${months[yesterday.getMonth()]}-${yesterday.getFullYear()}`;
+
+    const searchCriteria = [['FROM', 'noreply@tm.openai.com'], ['SINCE', sinceDate]];
+    const fetchOptions = { bodies: ['HEADER', 'TEXT'], struct: true };
 
     const messages = await connection.search(searchCriteria, fetchOptions);
     const codes = [];
 
-    messages.forEach(item => {
-      const all = item.parts.find(part => part.which === 'TEXT');
-      const id = item.attributes.uid;
-      const idHeader = "Imap-Id: "+id+"\r\n";
-      const body = idHeader + all.body;
+    messages
+      .sort((a, b) => b.attributes.date - a.attributes.date)
+      .forEach(item => {
+        const textPart = item.parts.find(part => part.which === 'TEXT');
+        const headerPart = item.parts.find(part => part.which === 'HEADER');
+        const body = textPart ? textPart.body : '';
+        const headerText = headerPart ? headerPart.body : '';
 
-      const codeMatch = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
-      const code = codeMatch ? codeMatch[1] : null;
+        const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
+        if (!match) return;
 
-      if (code) {
-        codes.push({ code });
-      }
-    });
+        let emailAddr = '';
+        let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
+        if (m) {
+          for (const fwd of m[1].split(',')) {
+            const t = fwd.trim();
+            if (t.includes('@') && t !== 'aanniitaas@gmail.com') {
+              emailAddr = t;
+              break;
+            }
+          }
+        }
+        if (!emailAddr) {
+          m = /Delivered-To:\s*(.+)/i.exec(headerText);
+          if (m) emailAddr = m[1].trim();
+        }
+        if (!emailAddr) {
+          m = /To:\s*(.+)/i.exec(headerText);
+          if (m) emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
+        }
+
+        codes.push({ code: match[1], email: emailAddr });
+      });
 
     connection.end();
     return codes;
