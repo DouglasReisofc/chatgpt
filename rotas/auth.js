@@ -126,9 +126,16 @@ router.get('/', checkBlockedIP, (req, res) => {
   if (req.session.user) {
     return res.redirect('/codes');
   }
+
+  let errorMessage = null;
+  if (req.query.error === 'session_expired') {
+    errorMessage = 'Sessão expirada. Faça login novamente.';
+  }
+
   res.render('login', {
     title: 'Login',
-    user: null
+    user: null,
+    errorMessage
   });
 });
 
