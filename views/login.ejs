@@ -15,16 +15,16 @@
     <div class="row justify-content-center mt-5">
         <div class="col-md-6 col-lg-4">
             <div class="card shadow-sm">
-                <div class="card-header text-white text-center py-4" style="background: linear-gradient(135deg, var(--card-start), var(--card-end));">
+                <div class="card-header text-center py-4" style="background: linear-gradient(135deg, var(--card-start), var(--card-end)); color: var(--text-color);">
                     <% if (branding.panelLogoUrl) { %>
                         <a href="<%= branding.href %>" class="d-block mb-2">
                             <img src="<%= branding.panelLogoUrl %>" alt="Logo" style="height:60px;border-radius:50%;">
                         </a>
                     <% } %>
-                    <a href="<%= branding.href %>" class="text-white text-decoration-none">
+                    <a href="<%= branding.href %>" class="text-decoration-none" style="color: var(--text-color);">
                         <h4 class="mb-0"><%= branding.panelName || 'ChatGPT Codes' %></h4>
                     </a>
-                    <p class="small mb-0">Sistema de Códigos</p>
+                    <p class="small mb-0" style="color: var(--text-color);">Sistema de Códigos</p>
                 </div>
                 <div class="card-body p-4">
                     <div id="loginForm">

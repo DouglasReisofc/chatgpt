@@ -109,6 +109,18 @@
                     <label class="form-label">Botão Hover</label>
                     <input type="color" id="buttonEnd" class="form-control form-control-color" value="<%= colors.buttonEnd %>">
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">Atualizar Início</label>
+                    <input type="color" id="updateStart" class="form-control form-control-color" value="<%= colors.updateStart %>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Atualizar Fim</label>
+                    <input type="color" id="updateEnd" class="form-control form-control-color" value="<%= colors.updateEnd %>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Cor do Texto</label>
+                    <input type="color" id="textColor" class="form-control form-control-color" value="<%= colors.textColor %>">
+                </div>
             </div>
             <button type="submit" class="btn btn-primary mt-3">Salvar</button>
         </form>
@@ -160,6 +172,9 @@
         const cardEnd = document.getElementById('cardEnd');
         const buttonStart = document.getElementById('buttonStart');
         const buttonEnd = document.getElementById('buttonEnd');
+        const updateStart = document.getElementById('updateStart');
+        const updateEnd = document.getElementById('updateEnd');
+        const textColor = document.getElementById('textColor');
 
         function updatePreview() {
             document.documentElement.style.setProperty('--bg-start', bgStart.value);
@@ -168,8 +183,11 @@
             document.documentElement.style.setProperty('--card-end', cardEnd.value);
             document.documentElement.style.setProperty('--button-start', buttonStart.value);
             document.documentElement.style.setProperty('--button-end', buttonEnd.value);
+            document.documentElement.style.setProperty('--update-start', updateStart.value);
+            document.documentElement.style.setProperty('--update-end', updateEnd.value);
+            document.documentElement.style.setProperty('--text-color', textColor.value);
         }
-        [bgStart, bgEnd, cardStart, cardEnd, buttonStart, buttonEnd].forEach(el => {
+        [bgStart, bgEnd, cardStart, cardEnd, buttonStart, buttonEnd, updateStart, updateEnd, textColor].forEach(el => {
             el.addEventListener('input', updatePreview);
         });
         updatePreview();
@@ -246,7 +264,10 @@
                 cardStart: cardStart.value,
                 cardEnd: cardEnd.value,
                 buttonStart: buttonStart.value,
-                buttonEnd: buttonEnd.value
+                buttonEnd: buttonEnd.value,
+                updateStart: updateStart.value,
+                updateEnd: updateEnd.value,
+                textColor: textColor.value
             };
             try {
                 const res = await fetch('/admin/settings/colors', {
