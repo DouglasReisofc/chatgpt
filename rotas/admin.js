@@ -3,6 +3,18 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const axios = require('axios');
+const path = require('path');
+const multer = require('multer');
+
+const uploadDir = path.join(__dirname, '..', 'public', 'images');
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, unique + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage });
 
 // Admin authentication middleware
 const requireAdmin = async (req, res, next) => {
@@ -621,22 +633,42 @@ router.post('/settings/code-display-limit', requireAdmin, async (req, res) => {
 });
 
 // Update branding settings (logos and href)
-router.post('/settings/branding', requireAdmin, async (req, res) => {
-    const { panelLogoUrl, cardLogoUrl, href } = req.body;
-    const db = req.db;
+router.post(
+    '/settings/branding',
+    requireAdmin,
+    upload.fields([
+        { name: 'panelLogoFile', maxCount: 1 },
+        { name: 'cardLogoFile', maxCount: 1 }
+    ]),
+    async (req, res) => {
+        const db = req.db;
+        const { panelLogoUrl = '', cardLogoUrl = '', href = '' } = req.body;
 
-    try {
-        await db.collection('settings').updateOne(
-            { key: 'branding' },
-            { $set: { panelLogoUrl, cardLogoUrl, href } },
-            { upsert: true }
-        );
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error saving branding:', error);
-        res.status(500).json({ error: 'Failed to save branding' });
+        try {
+            const update = { href };
+            if (req.files && req.files.panelLogoFile && req.files.panelLogoFile[0]) {
+                update.panelLogoUrl = '/images/' + req.files.panelLogoFile[0].filename;
+            } else {
+                update.panelLogoUrl = panelLogoUrl;
+            }
+            if (req.files && req.files.cardLogoFile && req.files.cardLogoFile[0]) {
+                update.cardLogoUrl = '/images/' + req.files.cardLogoFile[0].filename;
+            } else {
+                update.cardLogoUrl = cardLogoUrl;
+            }
+
+            await db.collection('settings').updateOne(
+                { key: 'branding' },
+                { $set: update },
+                { upsert: true }
+            );
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Error saving branding:', error);
+            res.status(500).json({ error: 'Failed to save branding' });
+        }
     }
-});
+);
 
 // List all users
 router.get('/users', requireAdmin, adminLayout, async (req, res) => {

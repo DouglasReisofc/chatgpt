@@ -99,6 +99,7 @@ chatgpt-codes-system/
 - ✅ Gerenciamento de códigos do ChatGPT
 - ✅ Interface web responsiva
 - ✅ Logs de acesso
+- ✅ Upload local de logos para personalização
 - ✅ MongoDB local automático (sem instalação manual!)
 - ✅ Inicialização automática do banco de dados
 
