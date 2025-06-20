@@ -96,50 +96,6 @@ async function getIPInfo(ip) {
   }
 }
 
-      // extrai o número de 6 dígitos
-      const parsed = await simpleParser(body).catch(() => ({}));
-      const content = parsed.text || parsed.html || body;
-      const mCode = content.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
-      if (!mCode) continue;
-
-      // extrai o e-mail do header
-      const headerText = msg.parts.find(p => p.which === 'HEADER').body;
-      let emailAddr = '';
-      let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
-      if (m) {
-        for (const fwd of m[1].split(',')) {
-          const t = fwd.trim();
-          if (t.includes('@') && t !== 'aanniitaas@gmail.com') {
-            emailAddr = t;
-            break;
-          }
-        }
-      }
-      if (!emailAddr) {
-        m = /Delivered-To:\s*(.+)/i.exec(headerText);
-        if (m) emailAddr = m[1].trim();
-      }
-      if (!emailAddr) {
-        m = /To:\s*(.+)/i.exec(headerText);
-        if (m) emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
-      }
-      emailAddr = emailAddr.replace(/\s*aanniitaas@gmail.com\s*/i, '').trim();
-
-      // só inclui se bater com o parâmetro `email` (ou se email === '')
-      if (!email || emailAddr.toLowerCase() === email.toLowerCase()) {
-        codes.push({ code: mCode[1], email: emailAddr || 'E-mail não encontrado' });
-        if (codes.length >= limit) break;
-      }
-    }
-
-    connection.end();
-    return codes;
-  } catch (err) {
-    console.error('Error fetching IMAP codes:', err);
-    return [];
-  }
-}
-
 
 // Check blocked IP middleware
 const checkBlockedIP = async (req, res, next) => {
