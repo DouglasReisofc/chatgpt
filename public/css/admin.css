@@ -47,6 +47,7 @@ body {
     position: static;
     transform: none;
     visibility: visible !important;
+    pointer-events: auto;
   }
   #sidebar.offcanvas .offcanvas-header {
     display: none;
