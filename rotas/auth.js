@@ -1,20 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
+const imaps = require('imap-simple');
 const axios = require('axios');
 const net = require('net');
 
 
-// Email configuration
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: 'contactgestorvip@gmail.com',
-    pass: 'aoqmdezazknbbpgf'
-  }
-});
+// Helper to create SMTP transporter from stored settings
+async function getTransporter(db) {
+  const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
+  const smtp = config.smtp || {};
+  return nodemailer.createTransport({
+    host: smtp.host || 'localhost',
+    port: smtp.port || 25,
+    secure: !!smtp.secure,
+    auth: smtp.user ? { user: smtp.user, pass: smtp.pass } : undefined
+  });
+}
 
 // Generate a random 6-digit code
 function generateCode() {
@@ -102,6 +104,50 @@ async function getIPInfo(ip) {
     return data && data.success ? data : { success: false, message: data.message || 'Invalid IP' };
   } catch (err) {
     return { success: false, message: err.message };
+  }
+}
+
+// Retrieve verification codes from IMAP using stored configuration
+async function fetchImapCodes(db) {
+  const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
+  const imapCfg = config.imap || {};
+  const imapConfig = {
+    imap: {
+      user: imapCfg.user,
+      password: imapCfg.pass,
+      host: imapCfg.host,
+      port: imapCfg.port || 993,
+      tls: !!imapCfg.tls,
+      tlsOptions: { rejectUnauthorized: false },
+      authTimeout: 10000,
+      connTimeout: 10000
+    }
+  };
+  try {
+    const connection = await imaps.connect(imapConfig);
+    await connection.openBox('INBOX');
+
+    const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
+    const searchCriteria = [['FROM', 'noreply@tm.openai.com'], ['SINCE', yesterday.toISOString().slice(0,10)]];
+    const fetchOptions = { bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)', 'TEXT'], struct: true };
+
+    const messages = await connection.search(searchCriteria, fetchOptions);
+    const codes = [];
+
+    messages.forEach(item => {
+      const all = item.parts.find(part => part.which === 'TEXT');
+      const id = item.attributes.uid;
+      const body = 'Imap-Id: ' + id + '\r\n' + all.body;
+      const match = body.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
+      if (match) {
+        codes.push({ code: match[1] });
+      }
+    });
+    connection.end();
+    return codes;
+  } catch (err) {
+    console.error('Error fetching IMAP codes:', err);
+    return [];
   }
 }
 
@@ -228,9 +274,10 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
     });
 
     console.log('📤 Sending email...');
-    // Send verification code via email
+    const transporter = await getTransporter(db);
+    const smtpConf = ((await db.collection('settings').findOne({ key: 'emailConfig' })) || {}).smtp || {};
     const emailResult = await transporter.sendMail({
-      from: '"ChatGPT Code System" <contactgestorvip@gmail.com>',
+      from: `"ChatGPT Code System" <${smtpConf.user || 'no-reply@example.com'}>`,
       to: email,
       subject: 'Seu Código de Acesso - ChatGPT',
       html: `
@@ -449,21 +496,7 @@ router.get('/codes', async (req, res) => {
       await db.collection('active_sessions').updateOne({ email, sessionId }, update);
     }
 
-    // Sample codes data (in a real implementation, this would come from email parsing)
-    const codes = [
-      {
-        email: 'eflaviaflores@gmail.com',
-        code: '857453'
-      },
-      {
-        email: 'eflaviaflores@gmail.com',
-        code: '961828'
-      },
-      {
-        email: 'luanadatequila@gmail.com',
-        code: '770017'
-      }
-    ];
+    const codes = await fetchImapCodes(db);
 
     console.log('🔢 Codes available:', codes.length);
 

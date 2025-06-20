@@ -106,6 +106,34 @@ async function initializeDatabase() {
             console.log('✅ Messages already exist');
         }
 
+        // Create default email configuration
+        const emailConfigExists = await db
+            .collection('settings')
+            .findOne({ key: 'emailConfig' });
+        if (!emailConfigExists) {
+            await db.collection('settings').insertOne({
+                key: 'emailConfig',
+                smtp: {
+                    host: 'smtp.example.com',
+                    port: 465,
+                    secure: true,
+                    user: 'user@example.com',
+                    pass: 'password'
+                },
+                imap: {
+                    host: 'imap.example.com',
+                    port: 993,
+                    tls: true,
+                    user: 'user@example.com',
+                    pass: 'password'
+                },
+                createdAt: new Date()
+            });
+            console.log('✅ Default email configuration created');
+        } else {
+            console.log('✅ Email configuration already exists');
+        }
+
 
         console.log('✅ Database initialized successfully');
 

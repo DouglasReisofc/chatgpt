@@ -336,6 +336,69 @@ router.post('/messages', requireAdmin, async (req, res) => {
     }
 });
 
+// Email configuration page
+router.get('/email-settings', requireAdmin, adminLayout, async (req, res) => {
+    try {
+        const config =
+            (await req.db.collection('settings').findOne({ key: 'emailConfig' })) || {
+                smtp: {},
+                imap: {}
+            };
+        res.render('admin/email_settings', {
+            title: 'Configurações de Email',
+            config,
+            page: 'email-settings'
+        });
+    } catch (error) {
+        console.error('Email settings error:', error);
+        res.status(500).send('Error loading email settings');
+    }
+});
+
+// Save email configuration
+router.post('/email-settings', requireAdmin, async (req, res) => {
+    const {
+        smtpHost,
+        smtpPort,
+        smtpSecure,
+        smtpUser,
+        smtpPass,
+        imapHost,
+        imapPort,
+        imapTls,
+        imapUser,
+        imapPass
+    } = req.body;
+    try {
+        await req.db.collection('settings').updateOne(
+            { key: 'emailConfig' },
+            {
+                $set: {
+                    smtp: {
+                        host: smtpHost,
+                        port: Number(smtpPort) || 0,
+                        secure: !!smtpSecure,
+                        user: smtpUser,
+                        pass: smtpPass
+                    },
+                    imap: {
+                        host: imapHost,
+                        port: Number(imapPort) || 0,
+                        tls: !!imapTls,
+                        user: imapUser,
+                        pass: imapPass
+                    }
+                }
+            },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving email settings:', error);
+        res.status(500).json({ error: 'Failed to save email settings' });
+    }
+});
+
 // Save global session settings
 router.post('/settings/session-limit', requireAdmin, async (req, res) => {
     const {
