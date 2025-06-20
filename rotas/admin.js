@@ -408,29 +408,34 @@ router.post('/email-settings', requireAdmin, async (req, res) => {
                 pass: 'CYRSG6vT86ZVfe'
             }
         };
+
+        const current =
+            (await req.db.collection('settings').findOne({ key: 'emailConfig' })) ||
+            defaults;
+
         await req.db.collection('settings').updateOne(
             { key: 'emailConfig' },
             {
                 $set: {
                     smtp: {
-                        host: smtpHost || defaults.smtp.host,
-                        port: Number(smtpPort) || defaults.smtp.port,
+                        host: smtpHost || current.smtp.host,
+                        port: Number(smtpPort) || current.smtp.port,
                         secure:
                             typeof smtpSecure === 'undefined'
-                                ? defaults.smtp.secure
+                                ? current.smtp.secure
                                 : !!smtpSecure,
-                        user: smtpUser || defaults.smtp.user,
-                        pass: smtpPass || defaults.smtp.pass
+                        user: smtpUser || current.smtp.user,
+                        pass: smtpPass || current.smtp.pass
                     },
                     imap: {
-                        host: imapHost || defaults.imap.host,
-                        port: Number(imapPort) || defaults.imap.port,
+                        host: imapHost || current.imap.host,
+                        port: Number(imapPort) || current.imap.port,
                         tls:
                             typeof imapTls === 'undefined'
-                                ? defaults.imap.tls
+                                ? current.imap.tls
                                 : !!imapTls,
-                        user: imapUser || defaults.imap.user,
-                        pass: imapPass || defaults.imap.pass
+                        user: imapUser || current.imap.user,
+                        pass: imapPass || current.imap.pass
                     }
                 }
             },
