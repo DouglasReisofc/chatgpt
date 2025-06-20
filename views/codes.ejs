@@ -212,24 +212,14 @@
     }
     
     const autoReload = <%- JSON.stringify(autoReload || { enabled: true, limit: 0 }) %>;
-    if (autoReload.enabled) {
-        let remaining = sessionStorage.getItem('codesReloadRemaining');
-        if (remaining === null) {
-            remaining = autoReload.limit;
-        } else {
-            remaining = parseInt(remaining, 10);
-        }
-        if (remaining > 0) {
-            sessionStorage.setItem('codesReloadRemaining', remaining - 1);
-            setTimeout(function() {
-                window.location.reload();
-            }, 30000);
-        } else {
-            sessionStorage.removeItem('codesReloadRemaining');
-        }
-        window.addEventListener('beforeunload', function() {
-            sessionStorage.removeItem('codesReloadRemaining');
-        });
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auto') === '1') {
+        window.history.replaceState({}, '', '/codes');
+    }
+    if (autoReload.enabled && autoReload.limit > 0) {
+        setTimeout(function() {
+            window.location.href = '/codes?auto=1';
+        }, 30000);
     }
 
     const expiresAt = <%- JSON.stringify(expiresAt || null) %>;

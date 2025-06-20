@@ -100,7 +100,7 @@ chatgpt-codes-system/
 - ✅ Interface web responsiva
 - ✅ Logs de acesso
 - ✅ Upload local de logos para personalização
-- ✅ Controle de recarregamento automático da página de códigos
+- ✅ Controle de recarregamento automático da página de códigos com limite por usuário
 - ✅ MongoDB local automático (sem instalação manual!)
 - ✅ Inicialização automática do banco de dados
 

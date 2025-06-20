@@ -405,7 +405,12 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Set user session
     console.log('🔐 Setting user session...');
     const sessionId = require('crypto').randomBytes(32).toString('hex');
-    req.session.user = { email, sessionId, ip, ipInfo };
+    req.session.user = {
+      email,
+      sessionId,
+      ip,
+      ipInfo
+    };
 
     // Store session in database
     const sessionDurationMinutes =
@@ -427,6 +432,18 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         now.getTime() + sessionDurationMinutes * 60000
       );
     }
+    const reloadSetting =
+      (await db.collection('settings').findOne({ key: 'autoReload' })) || {
+        enabled: true,
+        limit: 3
+      };
+    if (reloadSetting.enabled !== false) {
+      sessionData.reloadRemaining = reloadSetting.limit || 3;
+    } else {
+      sessionData.reloadRemaining = 0;
+    }
+    req.session.user.reloadRemaining = sessionData.reloadRemaining;
+
     await db.collection('active_sessions').insertOne(sessionData);
 
     console.log('✅ Verification successful');
@@ -458,7 +475,15 @@ router.get('/codes', async (req, res) => {
           Date.now() + sessionRecord.sessionDuration * 60000
         );
       }
-      await db.collection('active_sessions').updateOne({ email, sessionId }, update);
+      if (req.query.auto === '1' && sessionRecord.reloadRemaining > 0) {
+        update.$inc = { reloadRemaining: -1 };
+        sessionRecord.reloadRemaining -= 1;
+        req.session.user.reloadRemaining = sessionRecord.reloadRemaining;
+      }
+      await db
+        .collection('active_sessions')
+        .updateOne({ email, sessionId }, update);
+      req.session.user.reloadRemaining = sessionRecord.reloadRemaining;
     }
 
     const limitSetting =
@@ -517,8 +542,11 @@ router.get('/codes', async (req, res) => {
       user: req.session.user,
       branding,
       autoReload: {
-        enabled: reloadSetting.enabled !== false,
-        limit: reloadSetting.limit || 3
+        enabled:
+          reloadSetting.enabled !== false &&
+          sessionRecord &&
+          sessionRecord.reloadRemaining > 0,
+        limit: sessionRecord ? sessionRecord.reloadRemaining : 0
       },
       expiresAt:
         sessionRecord && sessionRecord.expiresAt
