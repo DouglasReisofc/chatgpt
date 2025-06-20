@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
   const toggleBtn = document.getElementById('themeToggle');
-  const sidebar = document.getElementById('sidebar');
   if (localStorage.getItem('admin-theme') === 'dark') {
     document.body.classList.add('dark');
   }
