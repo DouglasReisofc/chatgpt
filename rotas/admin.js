@@ -102,9 +102,9 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
     try {
         const stats = {
             totalUsers: await db.collection('users').countDocuments(),
-            totalLogins: await db.collection('access_logs').countDocuments({ action: 'verification_success' }),
+            totalLogins: await db.collection('access_logs').countDocuments({ action: { $in: ['Login sucesso', 'verification_success'] } }),
             todayLogins: await db.collection('access_logs').countDocuments({
-                action: 'verification_success',
+                action: { $in: ['Login sucesso', 'verification_success'] },
                 timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
             })
         };
@@ -400,7 +400,11 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
         const successCounts = await db
             .collection('access_logs')
             .aggregate([
-                { $match: { action: 'verification_success' } },
+                {
+                    $match: {
+                        action: { $in: ['Login sucesso', 'verification_success'] }
+                    }
+                },
                 { $group: { _id: '$email', count: { $sum: 1 } } }
             ])
             .toArray();
@@ -408,7 +412,13 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
         const blockCounts = await db
             .collection('access_logs')
             .aggregate([
-                { $match: { action: 'session_limit_reached' } },
+                {
+                    $match: {
+                        action: {
+                            $in: ['Limite de sessão atingido', 'session_limit_reached']
+                        }
+                    }
+                },
                 { $group: { _id: '$email', count: { $sum: 1 } } }
             ])
             .toArray();

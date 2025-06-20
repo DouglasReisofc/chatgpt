@@ -145,9 +145,9 @@ app.get('/codes', requireAuth, async (req, res) => {
     const codes = await fetchEmails();
     const stats = {
       totalUsers: await db.collection('users').countDocuments(),
-      totalLogins: await db.collection('access_logs').countDocuments({ action: 'verification_success' }),
+      totalLogins: await db.collection('access_logs').countDocuments({ action: { $in: ['Login sucesso', 'verification_success'] } }),
       todayLogins: await db.collection('access_logs').countDocuments({
-        action: 'verification_success',
+        action: { $in: ['Login sucesso', 'verification_success'] },
         timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
       })
     };
@@ -237,7 +237,7 @@ app.post('/api/verify', async (req, res) => {
     if (!verificationRecord) {
       await db.collection('access_logs').insertOne({
         email,
-        action: 'verification_failed',
+        action: 'Login falhou',
         timestamp: new Date(),
         ip: req.ip
       });
@@ -263,7 +263,7 @@ app.post('/api/verify', async (req, res) => {
     // Log successful verification
     await db.collection('access_logs').insertOne({
       email,
-      action: 'verification_success',
+      action: 'Login sucesso',
       timestamp: new Date(),
       ip: req.ip
     });

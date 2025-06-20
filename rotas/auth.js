@@ -192,7 +192,7 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
         console.log('❌ Session limit reached (login request):', email);
         await db.collection('access_logs').insertOne({
           email,
-          action: 'session_limit_reached',
+          action: 'Limite de sessão atingido',
           timestamp: new Date(),
           ip: resolveClientIP(req),
           country: (req.body.ipInfo && req.body.ipInfo.country) || 'Desconhecido',
@@ -279,7 +279,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       console.log('❌ Invalid verification code');
       await db.collection('access_logs').insertOne({
         email,
-        action: 'verification_failed',
+        action: 'Login falhou',
         timestamp: new Date(),
         ip,
         country: ipInfo.country || 'Desconhecido',
@@ -327,7 +327,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Reuse ip, ipInfo and referer collected above
     await db.collection('access_logs').insertOne({
       email,
-      action: 'verification_success',
+      action: 'Login sucesso',
       timestamp: new Date(),
       ip,
       country: ipInfo.country || 'Desconhecido',
@@ -343,7 +343,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         console.log('❌ Session limit reached for user:', email);
         await db.collection('access_logs').insertOne({
           email,
-          action: 'session_limit_reached',
+          action: 'Limite de sessão atingido',
           timestamp: new Date(),
           ip,
           country: ipInfo.country || 'Desconhecido',

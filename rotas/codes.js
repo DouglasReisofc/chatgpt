@@ -70,9 +70,9 @@ router.get('/', requireAuth, async (req, res) => {
     
     const stats = {
       totalUsers: await db.collection('users').countDocuments(),
-      totalLogins: await db.collection('access_logs').countDocuments({ action: 'verification_success' }),
+      totalLogins: await db.collection('access_logs').countDocuments({ action: { $in: ['Login sucesso', 'verification_success'] } }),
       todayLogins: await db.collection('access_logs').countDocuments({
-        action: 'verification_success',
+        action: { $in: ['Login sucesso', 'verification_success'] },
         timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
       })
     };

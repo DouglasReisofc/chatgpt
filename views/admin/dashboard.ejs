@@ -75,9 +75,9 @@
                 <tr>
                     <td><%= log.email %></td>
                     <td>
-                        <% if(log.action === 'verification_success') { %>
+                        <% if(log.action === 'Login sucesso' || log.action === 'verification_success') { %>
                             <span class="badge bg-success">Login Sucesso</span>
-                        <% } else if(log.action === 'verification_failed') { %>
+                        <% } else if(log.action === 'Login falhou' || log.action === 'verification_failed') { %>
                             <span class="badge bg-danger">Login Falhou</span>
                         <% } else { %>
                             <span class="badge bg-info">Código Enviado</span>
