@@ -64,6 +64,12 @@ body {
     margin: 0 auto 15px;
     font-size: 24px;
 }
+.chatgpt-icon img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+}
 
 .code-card-body {
     padding: 25px;
