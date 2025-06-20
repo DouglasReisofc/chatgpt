@@ -1,9 +1,13 @@
+// utils/emailUtils.js
+
 const nodemailer = require('nodemailer');
-const imaps = require('imap-simple');
+const Imap = require('imap');
 const { simpleParser } = require('mailparser');
 
+/**
+ * Parse a string like "{host:port/imap/ssl}BOX" into IMAP config.
+ */
 function parseImapConnection(str) {
-  // Allow host strings like "{imap.example.com:993/imap/ssl}INBOX"
   if (!str || !str.includes('{')) {
     return { host: str, port: undefined, tls: undefined, box: 'INBOX' };
   }
@@ -21,6 +25,9 @@ function parseImapConnection(str) {
   };
 }
 
+/**
+ * Build a Nodemailer transporter based on settings in MongoDB.
+ */
 async function getTransporter(db) {
   const defaults = {
     host: 'smtp.gmail.com',
@@ -29,8 +36,13 @@ async function getTransporter(db) {
     user: 'contactgestorvip@gmail.com',
     pass: 'aoqmdezazknbbpg'
   };
-  const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
-  const smtp = Object.assign({}, defaults, config.smtp);
+  const cfg = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
+  const smtp = { ...defaults, ...cfg.smtp };
+  console.log('🚀 SMTP config:', {
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure
+  });
   return nodemailer.createTransport({
     host: smtp.host,
     port: smtp.port,
@@ -39,6 +51,11 @@ async function getTransporter(db) {
   });
 }
 
+/**
+ * Connect via IMAP, search for messages from the last 24h,
+ * extract up to `limit` 6-digit codes, associate each with the true recipient,
+ * log each step to console and save to MongoDB.
+ */
 async function fetchImapCodes(db, email, limit = 5) {
   const defaults = {
     host: 'imap.uhserver.com',
@@ -47,20 +64,22 @@ async function fetchImapCodes(db, email, limit = 5) {
     user: 'financeiro@clubevip.net',
     pass: 'CYRSG6vT86ZVfe'
   };
-  const config = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
-  const imapCfg = Object.assign({}, defaults, config.imap);
+  const cfg = (await db.collection('settings').findOne({ key: 'emailConfig' })) || {};
+  const imapCfg = { ...defaults, ...cfg.imap };
 
   let mailbox = 'INBOX';
-  if (imapCfg.host && imapCfg.host.includes('{')) {
-    const parsed = parseImapConnection(imapCfg.host);
-    if (parsed.host) imapCfg.host = parsed.host;
-    if (parsed.port) imapCfg.port = parsed.port;
-    if (typeof parsed.tls === 'boolean') imapCfg.tls = parsed.tls;
-    mailbox = parsed.box || 'INBOX';
+  if (imapCfg.host.includes('{')) {
+    const p = parseImapConnection(imapCfg.host);
+    imapCfg.host = p.host;
+    if (p.port) imapCfg.port = p.port;
+    imapCfg.tls = p.tls;
+    mailbox = p.box;
   }
 
-  const imapConfig = {
-    imap: {
+  console.log(`🔗 Connecting to IMAP ${imapCfg.host}:${imapCfg.port} (tls=${imapCfg.tls})`);
+
+  return new Promise(resolve => {
+    const imap = new Imap({
       user: imapCfg.user,
       password: imapCfg.pass,
       host: imapCfg.host,
@@ -69,85 +88,121 @@ async function fetchImapCodes(db, email, limit = 5) {
       tlsOptions: { rejectUnauthorized: false },
       authTimeout: 10000,
       connTimeout: 10000
-    }
-  };
-
-  let connection;
-  try {
-    connection = await imaps.connect(imapConfig);
-    connection.on('error', err => {
-      console.error('IMAP connection error:', err);
     });
-    await connection.openBox(mailbox);
-    const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
-    const searchCriteria = [
-      ['FROM', 'noreply@tm.openai.com'],
-      ['SINCE', yesterday]
-    ];
-    const messages = await connection.search(searchCriteria, {
-      bodies: ['HEADER', 'TEXT'],
-      struct: true
-    });
-    messages.sort((a, b) => b.attributes.date - a.attributes.date);
 
-    const codes = [];
-    for (const msg of messages) {
-      let body = '';
-      const textPart = imaps.getParts(msg.attributes.struct).find(p => p.type === 'text' && !p.disposition);
-      if (textPart) {
-        body = await connection.getPartData(msg, textPart);
-      } else {
-        const text = msg.parts.find(p => p.which === 'TEXT');
-        body = text ? text.body : '';
-      }
-
-      const parsed = await simpleParser(body).catch(() => ({}));
-      const content = parsed.text || parsed.html || body;
-      const mCode = content.match(/(?:Your ChatGPT code is|=)\s*(\d{6})/);
-      if (!mCode) continue;
-
-      const header = msg.parts.find(p => p.which === 'HEADER');
-      const headerText = header ? header.body : '';
-      let emailAddr = '';
-      let m = /X-X-Forwarded-For:\s*(.+)/i.exec(headerText);
-      if (m) {
-        for (const fwd of m[1].split(',')) {
-          const t = fwd.trim();
-          if (t.includes('@') && t !== 'aanniitaas@gmail.com') {
-            emailAddr = t;
-            break;
-          }
+    imap.once('ready', () => {
+      console.log('✅ IMAP connection ready');
+      imap.openBox(mailbox, false, (err, box) => {
+        if (err) {
+          console.error('❌ Error opening mailbox:', err);
+          imap.end();
+          return resolve([]);
         }
-      }
-      if (!emailAddr) {
-        m = /Delivered-To:\s*(.+)/i.exec(headerText);
-        if (m) emailAddr = m[1].trim();
-      }
-      if (!emailAddr) {
-        m = /To:\s*(.+)/i.exec(headerText);
-        if (m) emailAddr = m[1].replace(/.*<([^>]+)>.*/, '$1').trim();
-      }
-      emailAddr = emailAddr.replace(/\s*aanniitaas@gmail.com\s*/i, '').trim();
+        console.log(`📬 Opened mailbox "${mailbox}", total messages: ${box.messages.total}`);
 
-      if (!email || emailAddr.toLowerCase() === email.toLowerCase()) {
-        const record = { code: mCode[1], email: emailAddr || 'E-mail não encontrado', fetchedAt: new Date() };
-        codes.push(record);
-        await db.collection('codes').insertOne(record).catch(() => {});
-        if (codes.length >= limit) break;
-      }
-    }
+        // Search for messages from the last 24h
+        const since = new Date(Date.now() - 24 * 3600 * 1000);
+        const criteria = [
+          ['FROM', 'noreply@tm.openai.com'],
+          ['SINCE', since]
+        ];
+        imap.search(criteria, (err, results) => {
+          if (err) {
+            console.error('❌ Error searching messages:', err);
+            imap.end();
+            return resolve([]);
+          }
+          console.log(`🔍 Found ${results.length} message(s) matching criteria`);
+          // Grab only the last `limit` UIDs
+          const uids = results.sort((a, b) => a - b).slice(-limit);
+          console.log(`✂️  Fetching last ${uids.length} message(s):`, uids);
 
-    return codes;
-  } catch (err) {
-    console.error('Error fetching IMAP codes:', err);
-    return [];
-  } finally {
-    if (connection) {
-      try {
-        connection.end();
-      } catch (_) {}
-    }
-  }
+          const fetcher = imap.fetch(uids, { bodies: ['HEADER', 'TEXT'], struct: true });
+          const records = [];
+
+          fetcher.on('message', (msg, seqno) => {
+            let headerText = '';
+            let bodyText = '';
+
+            msg.on('body', (stream, info) => {
+              const chunks = [];
+              stream.on('data', chunk => chunks.push(chunk));
+              stream.once('end', () => {
+                const text = Buffer.concat(chunks).toString('utf8');
+                if (info.which === 'HEADER') {
+                  headerText = text;
+                } else if (info.which === 'TEXT') {
+                  bodyText = text;
+                }
+              });
+            });
+
+            msg.once('end', async () => {
+              try {
+                // Parse body for 6-digit code
+                const parsed = await simpleParser(bodyText);
+                const content = parsed.text || parsed.html || bodyText;
+                const m = content.match(/\b(\d{6})\b/);
+                if (!m) return;
+
+                // Extract the real recipient from headers
+                let emailAddr = '';
+                let match;
+                if ((match = headerText.match(/^X-X-Forwarded-For:\s*(.+)$/gmi))) {
+                  // pick first forwarded with '@' and not our system email
+                  const list = match[0].split(':')[1].split(',').map(s => s.trim());
+                  for (const f of list) {
+                    if (f.includes('@') && f !== 'aanniitaas@gmail.com') {
+                      emailAddr = f;
+                      break;
+                    }
+                  }
+                }
+                if (!emailAddr && (match = headerText.match(/^Delivered-To:\s*(.+)$/gmi))) {
+                  emailAddr = match[0].split(':')[1].trim();
+                }
+                if (!emailAddr && (match = headerText.match(/^To:\s*.*<([^>]+)>/gmi))) {
+                  emailAddr = match[0].replace(/.*<([^>]+)>.*/, '$1').trim();
+                }
+                emailAddr = emailAddr.replace(/\s*aanniitaas@gmail.com/i, '').trim();
+
+                console.log(`🔢 Code found: ${m[1]} for ${emailAddr || 'unknown'}`);
+                const rec = {
+                  code: m[1],
+                  email: emailAddr || 'unknown',
+                  fetchedAt: new Date()
+                };
+                await db.collection('codes').insertOne(rec).catch(() => { });
+                records.push(rec);
+              } catch (e) {
+                console.error('⚠️ Error processing message:', e);
+              }
+            });
+          });
+
+          fetcher.once('end', () => {
+            console.log('✨ Finished fetching, total codes:', records.length);
+            imap.end();
+            resolve(records);
+          });
+        });
+      });
+    });
+
+    imap.once('error', err => {
+      console.error('❌ IMAP connection error:', err);
+      resolve([]);
+    });
+
+    imap.once('end', () => {
+      console.log('🔒 IMAP connection closed');
+    });
+
+    imap.connect();
+  });
 }
 
-module.exports = { getTransporter, fetchImapCodes };
+module.exports = {
+  getTransporter,
+  fetchImapCodes
+};
