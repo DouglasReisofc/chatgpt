@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
+const axios = require('axios');
 
 // Admin authentication middleware
 const requireAdmin = async (req, res, next) => {
@@ -11,9 +12,9 @@ const requireAdmin = async (req, res, next) => {
     next();
 };
 
-// Disable layout for all admin routes
-const disableLayout = (req, res, next) => {
-    res.locals.layout = false;
+// Use custom admin layout for dashboard pages
+const adminLayout = (req, res, next) => {
+    res.locals.layout = 'layouts/admin';
     next();
 };
 
@@ -31,17 +32,10 @@ router.get('/login', (req, res) => {
         return res.redirect('/admin/dashboard');
     }
 
-    // Temporarily disable layouts for this render
-    const originalRender = res.render;
-    res.render = function (view, options, callback) {
-        const app = req.app;
-        app.set('layout', false);
-        return originalRender.call(this, view, options, callback);
-    };
-
     res.render('admin/login_standalone', {
         title: 'Admin Login',
-        error: null
+        error: null,
+        layout: false
     });
 });
 
@@ -63,7 +57,8 @@ router.post('/login', async (req, res) => {
             console.log('❌ Admin user not found');
             return res.render('admin/login_standalone', {
                 title: 'Admin Login',
-                error: 'Invalid credentials'
+                error: 'Invalid credentials',
+                layout: false
             });
         }
 
@@ -71,18 +66,11 @@ router.post('/login', async (req, res) => {
         console.log('🔐 Password match:', passwordMatch ? 'Yes' : 'No');
 
         if (!passwordMatch) {
-            // Temporarily disable layouts for this render
-            const originalRender = res.render;
-            res.render = function (view, options, callback) {
-                const app = req.app;
-                app.set('layout', false);
-                return originalRender.call(this, view, options, callback);
-            };
-
-            return res.render('admin/login_standalone', {
-                title: 'Admin Login',
-                error: 'Invalid credentials'
-            });
+        return res.render('admin/login_standalone', {
+            title: 'Admin Login',
+            error: 'Invalid credentials',
+            layout: false
+        });
         }
 
         // Update last login
@@ -100,23 +88,16 @@ router.post('/login', async (req, res) => {
         res.redirect('/admin/dashboard');
     } catch (error) {
         console.error('Admin login error:', error);
-        // Temporarily disable layouts for this render
-        const originalRender = res.render;
-        res.render = function (view, options, callback) {
-            const app = req.app;
-            app.set('layout', false);
-            return originalRender.call(this, view, options, callback);
-        };
-
         res.render('admin/login_standalone', {
             title: 'Admin Login',
-            error: 'An error occurred'
+            error: 'An error occurred',
+            layout: false
         });
     }
 });
 
 // Admin dashboard
-router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
+router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         const stats = {
@@ -145,7 +126,7 @@ router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
             stats,
             recentUsers,
             recentLogs,
-            layout: false
+            page: 'dashboard'
         });
     } catch (error) {
         console.error('Dashboard error:', error);
@@ -153,8 +134,63 @@ router.get('/dashboard', requireAdmin, disableLayout, async (req, res) => {
     }
 });
 
+// Access logs page
+router.get('/logs', requireAdmin, adminLayout, async (req, res) => {
+    const db = req.db;
+    try {
+        const logs = await db.collection('access_logs')
+            .find()
+            .sort({ timestamp: -1 })
+            .limit(100)
+            .toArray();
+
+        const blockedIps = await db.collection('blocked_ips').find().toArray();
+
+        res.render('admin/logs', {
+            title: 'Logs de Acesso',
+            logs,
+            blockedIps,
+            page: 'logs'
+        });
+    } catch (error) {
+        console.error('Logs page error:', error);
+        res.status(500).send('Error loading logs');
+    }
+});
+
+// Blocked IPs management page
+router.get('/blocked-ips', requireAdmin, adminLayout, async (req, res) => {
+    try {
+        const blockedIps = await req.db.collection('blocked_ips')
+            .find()
+            .sort({ blockedAt: -1 })
+            .toArray();
+
+        res.render('admin/blocked_ips', {
+            title: 'Bloqueio de IPs',
+            blockedIps,
+            page: 'blocked-ips'
+        });
+    } catch (error) {
+        console.error('Blocked IPs page error:', error);
+        res.status(500).send('Error loading blocked IPs');
+    }
+});
+
+// Fetch detailed IP info from ipwho.is
+router.get('/ip-info/:ip', requireAdmin, async (req, res) => {
+    const ip = req.params.ip;
+    try {
+        const { data } = await axios.get(`https://ipwho.is/${ip}`);
+        res.json(data);
+    } catch (error) {
+        console.error('Error fetching IP info:', error);
+        res.status(500).json({ error: 'Failed to fetch IP info' });
+    }
+});
+
 // Settings page
-router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
+router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         // Load global settings
@@ -170,7 +206,7 @@ router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
             title: 'Configurações do Sistema',
             globalSettings,
             blockedIps,
-            layout: false
+            page: 'settings'
         });
     } catch (error) {
         console.error('Settings error:', error);
@@ -180,7 +216,7 @@ router.get('/settings', requireAdmin, disableLayout, async (req, res) => {
 
 // Save global session settings
 router.post('/settings/global', requireAdmin, async (req, res) => {
-    const { maxSessions, sessionDuration } = req.body;
+    const { maxSessions, sessionDuration, applyToAll } = req.body;
     const db = req.db;
 
     if (typeof maxSessions !== 'number' || typeof sessionDuration !== 'number') {
@@ -193,6 +229,11 @@ router.post('/settings/global', requireAdmin, async (req, res) => {
             { $set: { maxSessions, sessionDuration } },
             { upsert: true }
         );
+
+        if (applyToAll) {
+            await db.collection('users').updateMany({}, { $set: { maxSessions, sessionDuration } });
+        }
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error saving global settings:', error);
@@ -261,8 +302,22 @@ router.post('/settings/reset-logs', requireAdmin, async (req, res) => {
     }
 });
 
+// Reset all active sessions
+router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
+    const db = req.db;
+
+    try {
+        await db.collection('active_sessions').deleteMany({});
+        console.log('All sessions reset by admin:', req.session.admin.username);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error resetting sessions:', error);
+        res.status(500).json({ error: 'Failed to reset sessions' });
+    }
+});
+
 // List all users
-router.get('/users', requireAdmin, disableLayout, async (req, res) => {
+router.get('/users', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
         const users = await db.collection('users')
@@ -270,10 +325,13 @@ router.get('/users', requireAdmin, disableLayout, async (req, res) => {
             .sort({ lastLogin: -1 })
             .toArray();
 
+        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || { maxSessions: 3, sessionDuration: 5 };
+
         res.render('admin/users', {
             title: 'Manage Users',
             users,
-            layout: false
+            globalSettings,
+            page: 'users'
         });
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -321,7 +379,26 @@ router.post('/users/:email/reset-session', requireAdmin, async (req, res) => {
     const db = req.db;
 
     try {
+        // Remove any active sessions and pending verification codes
+        await db.collection('active_sessions').deleteMany({ email });
         await db.collection('verification_codes').deleteMany({ email });
+
+        // Restore the user's session limits to the global defaults
+        const globalSettings = await db.collection('settings').findOne({ key: 'globalSessionSettings' }) || {
+            maxSessions: 3,
+            sessionDuration: 5
+        };
+
+        await db.collection('users').updateOne(
+            { email },
+            {
+                $set: {
+                    maxSessions: globalSettings.maxSessions,
+                    sessionDuration: globalSettings.sessionDuration
+                }
+            }
+        );
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error resetting session:', error);
@@ -335,7 +412,10 @@ router.put('/users/:email/session-settings', requireAdmin, async (req, res) => {
     const { maxSessions, sessionDuration } = req.body;
     const db = req.db;
 
-    if (typeof maxSessions !== 'number' || typeof sessionDuration !== 'number') {
+    if (
+        typeof maxSessions !== 'number' ||
+        typeof sessionDuration !== 'number'
+    ) {
         return res.status(400).json({ error: 'Invalid input types' });
     }
 

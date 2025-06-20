@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
+const axios = require('axios');
+const net = require('net');
+
+const CODE_PAGE_LIMIT = 5; // maximum number of /codes accesses per session
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -18,11 +22,96 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function isPrivateIP(ip) {
+  if (!ip) return true;
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return true;
+  const privateRanges = [/^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./];
+  return privateRanges.some(r => r.test(ip));
+}
+
+function isValidIP(ip) {
+  return net.isIP(ip) !== 0;
+}
+
+function getClientIP(req) {
+  let xForwardedFor = req.headers['x-forwarded-for'];
+  if (xForwardedFor) {
+    const ips = xForwardedFor.split(',').map(ip => ip.trim());
+    for (const ip of ips) {
+      if (isValidIP(ip) && !isPrivateIP(ip)) {
+        return ip;
+      }
+    }
+  }
+
+  const proxyHeaders = [
+    'cf-connecting-ip',
+    'true-client-ip',
+    'x-real-ip',
+    'x-client-ip',
+    'x-forwarded',
+    'forwarded-for',
+    'forwarded'
+  ];
+  for (const header of proxyHeaders) {
+    const headerValue = req.headers[header];
+    if (headerValue) {
+      const ips = headerValue.split(',').map(ip => ip.trim());
+      for (const ip of ips) {
+        if (isValidIP(ip) && !isPrivateIP(ip)) {
+          return ip;
+        }
+      }
+    }
+  }
+
+  let directIP = req.connection?.remoteAddress || req.socket?.remoteAddress || req.ip;
+  if (directIP) {
+    if (directIP.startsWith('::ffff:')) directIP = directIP.substring(7);
+    if (directIP === '::1') directIP = '127.0.0.1';
+    if (directIP.includes(':')) directIP = directIP.split(':')[0];
+    if (isValidIP(directIP) && !isPrivateIP(directIP)) {
+      return directIP;
+    }
+  }
+  return 'unknown';
+}
+
+function resolveClientIP(req) {
+  const candidate = req.body?.ip || (req.body?.ipInfo && req.body.ipInfo.ip);
+  if (candidate && isValidIP(candidate) && !isPrivateIP(candidate)) {
+    return candidate;
+  }
+  return getClientIP(req);
+}
+
+function resolveReferer(req) {
+  return (
+    req.body?.referer ||
+    req.get('referer') ||
+    req.headers['origin'] ||
+    ''
+  );
+}
+
+async function getIPInfo(ip) {
+  try {
+    if (!isValidIP(ip) || isPrivateIP(ip)) {
+      return { success: false, message: 'Invalid IP' };
+    }
+    const { data } = await axios.get(`https://ipwho.is/${ip}`);
+    return data && data.success ? data : { success: false, message: data.message || 'Invalid IP' };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
 // Check blocked IP middleware
 const checkBlockedIP = async (req, res, next) => {
   try {
     const db = req.db;
-    const blockedIP = await db.collection('blocked_ips').findOne({ address: req.ip });
+    const ip = req.body.ip || (req.body.ipInfo && req.body.ipInfo.ip) || getClientIP(req);
+    const blockedIP = await db.collection('blocked_ips').findOne({ address: ip });
     if (blockedIP) {
       return res.status(403).json({ error: 'Seu IP está bloqueado. Entre em contato com o administrador.' });
     }
@@ -74,6 +163,28 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
       return res.status(403).json({ error: 'Email not authorized. Contact administrator.' });
     }
 
+    // Respect session limit before sending the code
+    const activeSessions = await db
+      .collection('active_sessions')
+      .countDocuments({ email });
+    const SESSION_LIMIT = userExists.maxSessions || 3;
+
+    if (activeSessions >= SESSION_LIMIT) {
+      console.log('❌ Session limit reached (login request):', email);
+      await db.collection('access_logs').insertOne({
+        email,
+        action: 'session_limit_reached',
+        timestamp: new Date(),
+        ip: resolveClientIP(req),
+        country: (req.body.ipInfo && req.body.ipInfo.country) || 'Desconhecido',
+        referer: resolveReferer(req),
+        ipInfo: req.body.ipInfo || null
+      });
+      return res
+        .status(403)
+        .json({ error: 'Limite de sessões atingido. Faça logout em outro dispositivo.' });
+    }
+
     // Store verification code in MongoDB
     console.log('🗑️ Removing old verification codes...');
     await db.collection('verification_codes').deleteMany({ email });
@@ -107,15 +218,6 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
 
     console.log('✅ Email sent successfully:', emailResult.messageId);
 
-    // Log access attempt
-    await db.collection('access_logs').insertOne({
-      email,
-      action: 'verification_code_sent',
-      timestamp: new Date(),
-      ip: req.ip
-    });
-
-    console.log('📝 Access log recorded');
     res.json({ message: 'Verification code sent' });
   } catch (error) {
     console.error('❌ Error sending email:', error);
@@ -134,6 +236,12 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
   try {
     const db = req.db;
+    const ip = resolveClientIP(req);
+    const referer = resolveReferer(req);
+    const ipInfo =
+      req.body.ipInfo && req.body.ipInfo.ip === ip
+        ? req.body.ipInfo
+        : await getIPInfo(ip);
     console.log('💾 Checking database connection...');
 
     if (!db) {
@@ -152,7 +260,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         email,
         action: 'verification_failed',
         timestamp: new Date(),
-        ip: req.ip
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
       });
       return res.status(401).json({ error: 'Invalid code' });
     }
@@ -164,30 +275,47 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Create or update user record
     console.log('👤 Updating user record...');
     const user = await db.collection('users').findOne({ email });
+    const globalSettings =
+      (await db.collection('settings').findOne({ key: 'globalSessionSettings' })) || {
+        maxSessions: 3,
+        sessionDuration: 5
+      };
+
+    const currentMax =
+      user && typeof user.maxSessions === 'number'
+        ? user.maxSessions
+        : globalSettings.maxSessions;
+    const newMaxSessions = Math.max(0, currentMax - 1);
+
     await db.collection('users').updateOne(
       { email },
       {
         $set: {
           email,
           lastLogin: new Date(),
-          verified: true
+          verified: true,
+          maxSessions: newMaxSessions
         }
       },
       { upsert: true }
     );
 
-    // Log successful verification
+    // Log successful verification with IP details
     console.log('📝 Recording successful verification...');
+    // Reuse ip, ipInfo and referer collected above
     await db.collection('access_logs').insertOne({
       email,
       action: 'verification_success',
       timestamp: new Date(),
-      ip: req.ip
+      ip,
+      country: ipInfo.country || 'Desconhecido',
+      referer,
+      ipInfo
     });
 
     // Check if user has reached session limit
     const activeSessions = await db.collection('active_sessions').countDocuments({ email });
-    const SESSION_LIMIT = user && user.maxSessions ? user.maxSessions : 3; // Limite personalizado ou padrão 3
+    const SESSION_LIMIT = newMaxSessions;
 
     if (activeSessions >= SESSION_LIMIT) {
       console.log('❌ Session limit reached for user:', email);
@@ -195,7 +323,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         email,
         action: 'session_limit_reached',
         timestamp: new Date(),
-        ip: req.ip
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
       });
       return res.status(403).json({ error: 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
     }
@@ -203,10 +334,13 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     // Set user session
     console.log('🔐 Setting user session...');
     const sessionId = require('crypto').randomBytes(32).toString('hex');
-    req.session.user = { email, sessionId };
+    req.session.user = { email, sessionId, codesRemaining: CODE_PAGE_LIMIT };
 
     // Store session in database
-    const sessionDurationMinutes = user && user.sessionDuration ? user.sessionDuration : 5;
+    const sessionDurationMinutes =
+      user && typeof user.sessionDuration === 'number'
+        ? user.sessionDuration
+        : globalSettings.sessionDuration;
     const now = new Date();
     await db.collection('active_sessions').insertOne({
       email,
@@ -214,8 +348,9 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       createdAt: now,
       lastActivity: now,
       expiresAt: new Date(now.getTime() + sessionDurationMinutes * 60000),
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+      ip,
+      userAgent: req.headers['user-agent'],
+      codesRemaining: CODE_PAGE_LIMIT
     });
 
     console.log('✅ Verification successful');
@@ -236,15 +371,23 @@ router.get('/codes', async (req, res) => {
     const db = req.db;
     console.log('📊 Loading codes page for user:', req.session.user.email);
 
-    // Get statistics
-    const stats = {
-      totalUsers: await db.collection('users').countDocuments(),
-      totalLogins: await db.collection('access_logs').countDocuments({ action: 'verification_success' }),
-      todayLogins: await db.collection('access_logs').countDocuments({
-        action: 'verification_success',
-        timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
-      })
-    };
+    const { email, sessionId } = req.session.user;
+    let sessionRecord = await db.collection('active_sessions').findOne({ email, sessionId });
+    let remaining = sessionRecord ? sessionRecord.codesRemaining : CODE_PAGE_LIMIT;
+    if (remaining === undefined || remaining === null) {
+      remaining = CODE_PAGE_LIMIT;
+    }
+
+    if (remaining <= 0) {
+      return res.render('limit', { title: 'Acesso Bloqueado' });
+    }
+
+    remaining -= 1;
+    req.session.user.codesRemaining = remaining;
+    await db.collection('active_sessions').updateOne(
+      { email, sessionId },
+      { $set: { codesRemaining: remaining, lastActivity: new Date() } }
+    );
 
     // Sample codes data (in a real implementation, this would come from email parsing)
     const codes = [
@@ -262,12 +405,10 @@ router.get('/codes', async (req, res) => {
       }
     ];
 
-    console.log('📊 Stats loaded:', stats);
     console.log('🔢 Codes available:', codes.length);
 
     res.render('codes', {
       title: 'ChatGPT Codes',
-      stats,
       codes,
       user: req.session.user
     });
@@ -289,13 +430,6 @@ router.get('/logout', async (req, res) => {
         sessionId
       });
 
-      // Log logout
-      await req.db.collection('access_logs').insertOne({
-        email,
-        action: 'logout',
-        timestamp: new Date(),
-        ip: req.ip
-      });
     } catch (error) {
       console.error('❌ Error during logout:', error);
     }
@@ -311,20 +445,30 @@ router.use(async (req, res, next) => {
     const { email, sessionId } = req.session.user;
 
     try {
-      // Update last activity
-      const session = await req.db.collection('active_sessions').findOneAndUpdate(
-        { email, sessionId },
-        { $set: { lastActivity: new Date() } }
-      );
+      const sessionRecord = await req.db.collection('active_sessions').findOne({ email, sessionId });
 
-      // If session not found in database, invalidate it
-      if (!session.value) {
+      if (!sessionRecord) {
         console.log('❌ Invalid session detected:', email);
         req.session.destroy();
         return res.redirect('/?error=session_expired');
       }
 
-      // Clean up old sessions (inactive for more than 24 hours)
+      if (sessionRecord.expiresAt && new Date() > sessionRecord.expiresAt) {
+        await req.db.collection('active_sessions').deleteOne({ email, sessionId });
+        console.log('⏰ Session expired for:', email);
+        req.session.destroy();
+        return res.redirect('/?error=session_expired');
+      }
+
+      if (typeof sessionRecord.codesRemaining === 'number') {
+        req.session.user.codesRemaining = sessionRecord.codesRemaining;
+      }
+
+      await req.db.collection('active_sessions').updateOne(
+        { email, sessionId },
+        { $set: { lastActivity: new Date() } }
+      );
+
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
       await req.db.collection('active_sessions').deleteMany({
         lastActivity: { $lt: yesterday }

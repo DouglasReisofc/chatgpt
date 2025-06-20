@@ -1,0 +1,70 @@
+<h2 class="mb-4">Bloqueio de IPs</h2>
+<div class="table-container mb-4">
+    <form id="ipBlockForm" class="mb-3 d-flex">
+        <input type="text" id="ipAddress" class="form-control me-2" placeholder="Digite o endereço IP" required>
+        <button type="submit" class="btn btn-danger">Bloquear IP</button>
+    </form>
+    <div class="table-responsive">
+        <table class="table" id="blockedIpsTable">
+            <thead>
+                <tr>
+                    <th>Endereço IP</th>
+                    <th>Data de Bloqueio</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% blockedIps.forEach(ip => { %>
+                <tr>
+                    <td><%= ip.address %></td>
+                    <td><%= new Date(ip.blockedAt).toLocaleString() %></td>
+                    <td>
+                        <button class="btn btn-sm btn-success unblock-ip" data-ip="<%= ip.address %>">Desbloquear</button>
+                    </td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.getElementById('ipBlockForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const ipAddress = document.getElementById('ipAddress').value;
+        try {
+            const response = await fetch('/admin/settings/block-ip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip: ipAddress })
+            });
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Erro ao bloquear IP.');
+            }
+        } catch (error) {
+            alert('Erro ao bloquear IP.');
+        }
+    });
+
+    document.querySelectorAll('.unblock-ip').forEach(button => {
+        button.addEventListener('click', async function() {
+            const ip = this.dataset.ip;
+            try {
+                const response = await fetch('/admin/settings/unblock-ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip })
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Erro ao desbloquear IP.');
+                }
+            } catch (error) {
+                alert('Erro ao desbloquear IP.');
+            }
+        });
+    });
+</script>

@@ -141,34 +141,6 @@ body {
     50% { opacity: 1; }
 }
 
-/* Stats Cards */
-.stats-card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 15px;
-    padding: 20px;
-    text-align: center;
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    margin-bottom: 20px;
-}
-
-.stats-card i {
-    font-size: 2.5rem;
-    margin-bottom: 15px;
-    opacity: 0.8;
-}
-
-.stats-card h3 {
-    font-size: 2rem;
-    margin-bottom: 5px;
-}
-
-.stats-card p {
-    font-size: 1rem;
-    opacity: 0.8;
-    margin: 0;
-}
 
 /* Login Form */
 .login-form {

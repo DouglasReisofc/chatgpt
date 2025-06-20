@@ -10,6 +10,7 @@ const session = require('express-session');
 const expressLayouts = require('express-ejs-layouts');
 
 const app = express();
+app.set('trust proxy', true);
 const port = process.env.PORT || 8000;
 
 // View engine setup
@@ -108,9 +109,9 @@ const adminRoutes = require('./rotas/admin');
 // Use routes
 app.use('/', authRoutes);
 
-// Disable express-ejs-layouts for admin routes
-app.use('/admin/*', (req, res, next) => {
-  app.set('layout', '');
+// Disable layout only for admin routes without affecting others
+app.use('/admin*', (req, res, next) => {
+  res.locals.layout = false;
   next();
 });
 

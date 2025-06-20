@@ -41,6 +41,20 @@
 
 <script>
     let currentEmail = '';
+    let clientIPInfo = null;
+    const clientReferrer = document.referrer || '';
+
+    async function captureIPInfo() {
+        try {
+            const res = await fetch('https://ipwho.is/');
+            clientIPInfo = await res.json();
+        } catch (e) {
+            console.error('Erro ao obter IP:', e);
+            clientIPInfo = null;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', captureIPInfo);
 
     async function requestCode() {
         const email = document.getElementById('email').value;
@@ -50,12 +64,18 @@
         }
 
         try {
+            if (!clientIPInfo) await captureIPInfo();
             const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({
+                    email,
+                    ip: clientIPInfo ? clientIPInfo.ip : null,
+                    ipInfo: clientIPInfo,
+                    referer: clientReferrer
+                })
             });
 
             const data = await response.json();
@@ -81,6 +101,7 @@
         }
 
         try {
+            if (!clientIPInfo) await captureIPInfo();
             const response = await fetch('/api/verify', {
                 method: 'POST',
                 headers: {
@@ -88,7 +109,10 @@
                 },
                 body: JSON.stringify({
                     email: currentEmail,
-                    code: code
+                    code: code,
+                    ip: clientIPInfo ? clientIPInfo.ip : null,
+                    ipInfo: clientIPInfo,
+                    referer: clientReferrer
                 })
             });
 

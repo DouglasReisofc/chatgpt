@@ -1,0 +1,128 @@
+<h2 class="m-0 mb-4">Logs de Acesso</h2>
+<button id="resetLogsBtn" class="btn btn-danger btn-sm mb-3">
+    <i class="fas fa-trash-alt me-1"></i>Resetar Logs
+</button>
+<div class="table-container">
+    <div class="table-responsive">
+        <table class="table" id="logsTable">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Ação</th>
+                    <th>Data/Hora</th>
+                    <th>IP</th>
+                    <th>País</th>
+                    <th>Referer</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% logs.forEach(log => { %>
+                <tr>
+                    <td><%= log.email %></td>
+                    <td><%= log.action %></td>
+                    <td><%= new Date(log.timestamp).toLocaleString() %></td>
+                    <td><%= log.ip %></td>
+                    <td>
+                        <%= log.ipInfo && log.ipInfo.flag ? log.ipInfo.flag.emoji + ' ' : '' %>
+                        <%= log.country || 'Desconhecido' %>
+                    </td>
+                    <td>
+                        <% if (log.referer) { %>
+                            <a href="<%= log.referer %>" target="_blank">
+                                <%= log.referer.length > 40 ? log.referer.slice(0,37) + '...' : log.referer %>
+                            </a>
+                        <% } %>
+                    </td>
+                    <td>
+                        <% const isBlocked = blockedIps.find(b => b.address === log.ip); %>
+                        <button class="btn btn-sm btn-info ip-info" data-ip="<%= log.ip %>">Detalhes</button>
+                        <% if(isBlocked) { %>
+                            <span class="badge bg-secondary ms-1">Bloqueado</span>
+                        <% } else { %>
+                            <button class="btn btn-sm btn-danger ms-1 block-ip" data-ip="<%= log.ip %>">Bloquear</button>
+                        <% } %>
+                    </td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- IP Info Modal -->
+<div class="modal fade" id="ipInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do IP</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="ipInfoBody">Carregando...</pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('.block-ip').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const ip = this.dataset.ip;
+            try {
+                const res = await fetch('/admin/settings/block-ip', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ip })
+                });
+                if(res.ok) {
+                    location.reload();
+                } else {
+                    alert('Erro ao bloquear IP');
+                }
+            } catch(e) {
+                alert('Erro ao bloquear IP');
+            }
+        });
+    });
+
+    document.getElementById('resetLogsBtn').addEventListener('click', async () => {
+        if(confirm('Deseja realmente apagar todos os logs?')) {
+            try {
+                const res = await fetch('/admin/settings/reset-logs', { method: 'POST' });
+                if(res.ok) {
+                    location.reload();
+                } else {
+                    alert('Erro ao resetar logs');
+                }
+            } catch(e) {
+                alert('Erro ao resetar logs');
+            }
+        }
+    });
+
+    // IP info buttons
+    document.querySelectorAll('.ip-info').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const ip = this.dataset.ip;
+            const modalBody = document.getElementById('ipInfoBody');
+            modalBody.textContent = 'Carregando...';
+            const ipModal = new bootstrap.Modal(document.getElementById('ipInfoModal'));
+            ipModal.show();
+            try {
+                const res = await fetch(`/admin/ip-info/${ip}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    modalBody.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    modalBody.textContent = 'Erro ao obter informações.';
+                }
+            } catch(e) {
+                modalBody.textContent = 'Erro ao obter informações.';
+            }
+        });
+    });
+</script>
