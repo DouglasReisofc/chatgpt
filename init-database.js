@@ -83,19 +83,6 @@ async function initializeDatabase() {
             console.log('✅ Session limit already exists');
         }
 
-        // Create default code limit setting
-        const codeLimitExists = await db.collection('settings').findOne({ key: 'codeLimitEnabled' });
-        if (!codeLimitExists) {
-            await db.collection('settings').insertOne({
-                key: 'codeLimitEnabled',
-                enabled: true,
-                limit: 5,
-                createdAt: new Date()
-            });
-            console.log('✅ Default code limit setting created');
-        } else {
-            console.log('✅ Code limit setting already exists');
-        }
 
         console.log('✅ Database initialized successfully');
 

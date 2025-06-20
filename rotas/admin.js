@@ -202,21 +202,19 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
     }
 });
 
-// Code limit settings page
+// Session limit settings page
 router.get('/code-settings', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
-        const codeLimit = await db.collection('settings').findOne({ key: 'codeLimitEnabled' }) || { enabled: true, limit: 5 };
         const sessionLimit = await db.collection('settings').findOne({ key: 'sessionLimit' }) || { enabled: true, maxSessions: 3, sessionDuration: 5 };
         res.render('admin/code_settings', {
-            title: 'Limite de Acesso',
-            codeLimit,
+            title: 'Limite de Sessões',
             sessionLimit,
             page: 'code-settings'
         });
     } catch (error) {
-        console.error('Code limit settings error:', error);
-        res.status(500).send('Error loading code limit settings');
+        console.error('Session limit settings error:', error);
+        res.status(500).send('Error loading session limit settings');
     }
 });
 
@@ -251,28 +249,6 @@ router.post('/settings/session-limit', requireAdmin, async (req, res) => {
 });
 
 // Toggle code page access limit
-router.post('/settings/code-limit', requireAdmin, async (req, res) => {
-    const db = req.db;
-    const enabled = !!req.body.enabled;
-    const limit = typeof req.body.limit === 'number' ? req.body.limit : undefined;
-
-    const update = { enabled };
-    if (typeof limit === 'number') {
-        update.limit = limit;
-    }
-
-    try {
-        await db.collection('settings').updateOne(
-            { key: 'codeLimitEnabled' },
-            { $set: update },
-            { upsert: true }
-        );
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error updating code limit setting:', error);
-        res.status(500).json({ error: 'Failed to update code limit setting' });
-    }
-});
 
 // Block IP
 router.post('/settings/block-ip', requireAdmin, async (req, res) => {

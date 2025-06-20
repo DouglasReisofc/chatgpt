@@ -4,7 +4,6 @@ const nodemailer = require('nodemailer');
 const axios = require('axios');
 const net = require('net');
 
-const CODE_PAGE_LIMIT = 5; // maximum number of /codes accesses per session
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -293,7 +292,6 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       user && typeof user.maxSessions === 'number'
         ? user.maxSessions
         : sessionLimitSetting.maxSessions;
-    const newMaxSessions = Math.max(0, currentMax - 1);
 
     await db.collection('users').updateOne(
       { email },
@@ -302,7 +300,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
           email,
           lastLogin: new Date(),
           verified: true,
-          maxSessions: newMaxSessions
+          maxSessions: currentMax
         }
       },
       { upsert: true }
@@ -323,7 +321,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
 
     if (sessionLimitSetting.enabled !== false) {
       const activeSessions = await db.collection('active_sessions').countDocuments({ email });
-      const SESSION_LIMIT = newMaxSessions;
+      const SESSION_LIMIT = currentMax;
 
       if (activeSessions >= SESSION_LIMIT) {
         console.log('❌ Session limit reached for user:', email);
@@ -340,19 +338,10 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       }
     }
 
-    // Load code limit setting
-    const codeLimitSetting = await db.collection('settings').findOne({ key: 'codeLimitEnabled' });
-    const codeLimitEnabled = !codeLimitSetting || codeLimitSetting.enabled !== false;
-    const codeLimitValue = codeLimitSetting && typeof codeLimitSetting.limit === 'number' ? codeLimitSetting.limit : CODE_PAGE_LIMIT;
-
     // Set user session
     console.log('🔐 Setting user session...');
     const sessionId = require('crypto').randomBytes(32).toString('hex');
-    if (codeLimitEnabled) {
-      req.session.user = { email, sessionId, codesRemaining: codeLimitValue };
-    } else {
-      req.session.user = { email, sessionId };
-    }
+    req.session.user = { email, sessionId };
 
     // Store session in database
     const sessionDurationMinutes =
@@ -370,9 +359,6 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
     };
     if (sessionLimitSetting.enabled !== false) {
       sessionData.expiresAt = new Date(now.getTime() + sessionDurationMinutes * 60000);
-    }
-    if (codeLimitEnabled) {
-      sessionData.codesRemaining = codeLimitValue;
     }
     await db.collection('active_sessions').insertOne(sessionData);
 
@@ -394,35 +380,11 @@ router.get('/codes', async (req, res) => {
     const db = req.db;
     console.log('📊 Loading codes page for user:', req.session.user.email);
 
-    const limitSetting = await db.collection('settings').findOne({ key: 'codeLimitEnabled' });
-    const codeLimitEnabled = !limitSetting || limitSetting.enabled !== false;
-    const codeLimitValue = limitSetting && typeof limitSetting.limit === 'number' ? limitSetting.limit : CODE_PAGE_LIMIT;
-
     const { email, sessionId } = req.session.user;
-    let sessionRecord = await db.collection('active_sessions').findOne({ email, sessionId });
-
-    if (codeLimitEnabled) {
-      let remaining = sessionRecord ? sessionRecord.codesRemaining : codeLimitValue;
-      if (remaining === undefined || remaining === null) {
-        remaining = codeLimitValue;
-      }
-
-      if (remaining <= 0) {
-        return res.render('limit', { title: 'Acesso Bloqueado' });
-      }
-
-      remaining -= 1;
-      req.session.user.codesRemaining = remaining;
-      await db.collection('active_sessions').updateOne(
-        { email, sessionId },
-        { $set: { codesRemaining: remaining, lastActivity: new Date() } }
-      );
-    } else {
-      await db.collection('active_sessions').updateOne(
-        { email, sessionId },
-        { $set: { lastActivity: new Date() } }
-      );
-    }
+    await db.collection('active_sessions').updateOne(
+      { email, sessionId },
+      { $set: { lastActivity: new Date() } }
+    );
 
     // Sample codes data (in a real implementation, this would come from email parsing)
     const codes = [
@@ -482,8 +444,6 @@ router.use(async (req, res, next) => {
     try {
       const sessionRecord = await req.db.collection('active_sessions').findOne({ email, sessionId });
 
-      const limitSetting = await req.db.collection('settings').findOne({ key: 'codeLimitEnabled' });
-      const codeLimitEnabled = !limitSetting || limitSetting.enabled !== false;
       const sessionLimitSetting = await req.db.collection('settings').findOne({ key: 'sessionLimit' });
 
       if (!sessionRecord) {
@@ -501,9 +461,6 @@ router.use(async (req, res, next) => {
         }
       }
 
-      if (codeLimitEnabled && typeof sessionRecord.codesRemaining === 'number') {
-        req.session.user.codesRemaining = sessionRecord.codesRemaining;
-      }
 
       await req.db.collection('active_sessions').updateOne(
         { email, sessionId },
