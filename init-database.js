@@ -69,70 +69,64 @@ async function initializeDatabase() {
         }
 
         // Create default session limit settings
-        const sessionLimitExists = await db
-            .collection('settings')
-            .findOne({ key: 'sessionLimit' });
-        if (!sessionLimitExists) {
-            await db.collection('settings').insertOne({
-                key: 'sessionLimit',
-                limitEnabled: true,
-                durationEnabled: true,
-                maxSessions: 3,
-                sessionDuration: 5,
-                createdAt: new Date()
-            });
-            console.log('✅ Default session limit created');
-        } else {
-            console.log('✅ Session limit already exists');
-        }
+        await db.collection('settings').updateOne(
+            { key: 'sessionLimit' },
+            {
+                $setOnInsert: { createdAt: new Date() },
+                $set: {
+                    limitEnabled: true,
+                    durationEnabled: true,
+                    maxSessions: 3,
+                    sessionDuration: 5
+                }
+            },
+            { upsert: true }
+        );
+        console.log('✅ Session limit ensured');
 
         // Create default messages settings
-        const messagesExists = await db
-            .collection('settings')
-            .findOne({ key: 'messages' });
-        if (!messagesExists) {
-            await db.collection('settings').insertOne({
-                key: 'messages',
-                sessionLimitReached:
-                    'Limite de sessões atingido. Faça logout em outro dispositivo.',
-                sessionExpired: 'Sessão expirada. Faça login novamente.',
-                invalidCode: 'Código inválido.',
-                ipBlocked:
-                    'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde',
-                createdAt: new Date()
-            });
-            console.log('✅ Default messages created');
-        } else {
-            console.log('✅ Messages already exist');
-        }
+        await db.collection('settings').updateOne(
+            { key: 'messages' },
+            {
+                $setOnInsert: { createdAt: new Date() },
+                $set: {
+                    sessionLimitReached:
+                        'Limite de sessões atingido. Faça logout em outro dispositivo.',
+                    sessionExpired: 'Sessão expirada. Faça login novamente.',
+                    invalidCode: 'Código inválido.',
+                    ipBlocked:
+                        'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde'
+                }
+            },
+            { upsert: true }
+        );
+        console.log('✅ System messages ensured');
 
         // Create default email configuration
-        const emailConfigExists = await db
-            .collection('settings')
-            .findOne({ key: 'emailConfig' });
-        if (!emailConfigExists) {
-            await db.collection('settings').insertOne({
-                key: 'emailConfig',
-                smtp: {
-                    host: 'smtp.example.com',
-                    port: 465,
-                    secure: true,
-                    user: 'user@example.com',
-                    pass: 'password'
-                },
-                imap: {
-                    host: 'imap.example.com',
-                    port: 993,
-                    tls: true,
-                    user: 'user@example.com',
-                    pass: 'password'
-                },
-                createdAt: new Date()
-            });
-            console.log('✅ Default email configuration created');
-        } else {
-            console.log('✅ Email configuration already exists');
-        }
+        await db.collection('settings').updateOne(
+            { key: 'emailConfig' },
+            {
+                $setOnInsert: { createdAt: new Date() },
+                $set: {
+                    smtp: {
+                        host: 'smtp.example.com',
+                        port: 465,
+                        secure: true,
+                        user: 'user@example.com',
+                        pass: 'password'
+                    },
+                    imap: {
+                        host: 'imap.example.com',
+                        port: 993,
+                        tls: true,
+                        user: 'user@example.com',
+                        pass: 'password'
+                    }
+                }
+            },
+            { upsert: true }
+        );
+        console.log('✅ Email configuration ensured');
 
 
         console.log('✅ Database initialized successfully');

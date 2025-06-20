@@ -410,11 +410,16 @@ router.post('/settings/session-limit', requireAdmin, async (req, res) => {
     } = req.body;
     const db = req.db;
 
+    const parsedMax = parseInt(maxSessions);
+    const parsedDuration = parseInt(sessionDuration);
+
     if (
-        typeof maxSessions !== 'number' ||
-        typeof sessionDuration !== 'number'
+        !Number.isInteger(parsedMax) ||
+        parsedMax < 0 ||
+        !Number.isInteger(parsedDuration) ||
+        parsedDuration <= 0
     ) {
-        return res.status(400).json({ error: 'Invalid input types' });
+        return res.status(400).json({ error: 'Invalid input values' });
     }
 
     try {
@@ -424,15 +429,17 @@ router.post('/settings/session-limit', requireAdmin, async (req, res) => {
                 $set: {
                     limitEnabled: !!limitEnabled,
                     durationEnabled: !!durationEnabled,
-                    maxSessions,
-                    sessionDuration
+                    maxSessions: parsedMax,
+                    sessionDuration: parsedDuration
                 }
             },
             { upsert: true }
         );
 
         if (applyToAll) {
-            await db.collection('users').updateMany({}, { $set: { maxSessions, sessionDuration } });
+            await db
+                .collection('users')
+                .updateMany({}, { $set: { maxSessions: parsedMax, sessionDuration: parsedDuration } });
         }
 
         res.json({ success: true });
@@ -702,14 +709,19 @@ router.post('/users/:email/reset-session', requireAdmin, async (req, res) => {
 // Update user session settings (maxSessions and sessionDuration)
 router.put('/users/:email/session-settings', requireAdmin, async (req, res) => {
     const { email } = req.params;
-    const { maxSessions, sessionDuration } = req.body;
+    let { maxSessions, sessionDuration } = req.body;
     const db = req.db;
 
+    maxSessions = parseInt(maxSessions);
+    sessionDuration = parseInt(sessionDuration);
+
     if (
-        typeof maxSessions !== 'number' ||
-        typeof sessionDuration !== 'number'
+        !Number.isInteger(maxSessions) ||
+        maxSessions < 0 ||
+        !Number.isInteger(sessionDuration) ||
+        sessionDuration <= 0
     ) {
-        return res.status(400).json({ error: 'Invalid input types' });
+        return res.status(400).json({ error: 'Invalid input values' });
     }
 
     try {
