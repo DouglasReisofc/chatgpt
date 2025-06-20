@@ -180,15 +180,12 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
       !sessionLimitSetting || sessionLimitSetting.limitEnabled !== false;
 
     if (limitEnabled) {
-      const activeSessions = await db
-        .collection('active_sessions')
-        .countDocuments({ email });
-      const SESSION_LIMIT =
+      const remaining =
         typeof userExists.maxSessions === 'number'
           ? userExists.maxSessions
           : (sessionLimitSetting && sessionLimitSetting.maxSessions) || 3;
 
-      if (activeSessions >= SESSION_LIMIT) {
+      if (remaining <= 0) {
         console.log('❌ Session limit reached (login request):', email);
         await db.collection('access_logs').insertOne({
           email,
@@ -309,18 +306,52 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
         ? user.maxSessions
         : sessionLimitSetting.maxSessions;
 
-    await db.collection('users').updateOne(
-      { email },
-      {
-        $set: {
-          email,
-          lastLogin: new Date(),
-          verified: true,
-          maxSessions: currentMax
-        }
-      },
-      { upsert: true }
-    );
+    if (sessionLimitSetting.limitEnabled !== false && currentMax <= 0) {
+      console.log('❌ Session limit reached for user:', email);
+      await db.collection('access_logs').insertOne({
+        email,
+        action: 'Limite de sessão atingido',
+        timestamp: new Date(),
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
+      });
+      return res
+        .status(403)
+        .json({
+          error:
+            messages.sessionLimitReached ||
+            'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.'
+        });
+    }
+
+    const userUpdate = {
+      $set: { lastLogin: new Date(), verified: true }
+    };
+    if (sessionLimitSetting.limitEnabled !== false) {
+      userUpdate.$inc = { maxSessions: -1 };
+    }
+    const updateQuery = sessionLimitSetting.limitEnabled !== false
+      ? { email, maxSessions: { $gt: 0 } }
+      : { email };
+    const updateResult = await db
+      .collection('users')
+      .updateOne(updateQuery, userUpdate);
+
+    if (sessionLimitSetting.limitEnabled !== false && updateResult.matchedCount === 0) {
+      console.log('❌ Session limit reached for user during update:', email);
+      await db.collection('access_logs').insertOne({
+        email,
+        action: 'Limite de sessão atingido',
+        timestamp: new Date(),
+        ip,
+        country: ipInfo.country || 'Desconhecido',
+        referer,
+        ipInfo
+      });
+      return res.status(403).json({ error: messages.sessionLimitReached || 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
+    }
 
     // Log successful verification with IP details
     console.log('📝 Recording successful verification...');
@@ -335,24 +366,7 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       ipInfo
     });
 
-    if (sessionLimitSetting.limitEnabled !== false) {
-      const activeSessions = await db.collection('active_sessions').countDocuments({ email });
-      const SESSION_LIMIT = currentMax;
 
-      if (activeSessions >= SESSION_LIMIT) {
-        console.log('❌ Session limit reached for user:', email);
-        await db.collection('access_logs').insertOne({
-          email,
-          action: 'Limite de sessão atingido',
-          timestamp: new Date(),
-          ip,
-          country: ipInfo.country || 'Desconhecido',
-          referer,
-          ipInfo
-        });
-        return res.status(403).json({ error: messages.sessionLimitReached || 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
-      }
-    }
 
     // Set user session
     console.log('🔐 Setting user session...');
