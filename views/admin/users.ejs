@@ -7,11 +7,27 @@
         <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteUsersModal">
             <i class="fas fa-trash me-2"></i>Remover Emails
         </button>
+        <button class="btn btn-danger me-2" id="deleteAllBtn">
+            <i class="fas fa-user-slash me-2"></i>Apagar Todos
+        </button>
+        <button class="btn btn-danger me-2" id="deleteSelectedBtn" style="display:none;">
+            <i class="fas fa-trash-alt me-2"></i>Apagar Selecionados
+        </button>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
             <i class="fas fa-plus me-2"></i>Adicionar Usuário
         </button>
     </div>
 </div>
+
+<nav class="mt-3">
+    <ul class="pagination">
+        <% for(let p=1; p<=pagination.pages; p++) { %>
+            <li class="page-item <%= p===pagination.page ? 'active' : '' %>">
+                <a class="page-link" href="?limit=<%= pagination.limit %>&page=<%= p %>"><%= p %></a>
+            </li>
+        <% } %>
+    </ul>
+</nav>
 
 <div class="d-flex align-items-center mb-3">
     <input type="text" id="userSearch" class="form-control me-2" placeholder="Buscar...">
@@ -20,6 +36,11 @@
         <option value="blocked">Bloqueados</option>
         <option value="nolimit">Sem limite</option>
     </select>
+    <select id="userLimit" class="form-select ms-2" style="width: 100px;">
+        <% [50,100,500].forEach(n => { %>
+            <option value="<%= n %>" <%= pagination.limit == n ? 'selected' : '' %>><%= n %></option>
+        <% }); %>
+    </select>
 </div>
 
 <div class="table-container">
@@ -27,6 +48,7 @@
         <table class="table" id="usersTable">
             <thead>
                 <tr>
+                    <th><input type="checkbox" id="selectAllUsers"></th>
                     <th>Email</th>
                     <th>Status</th>
                     <th>Último Login</th>
@@ -40,6 +62,7 @@
             <tbody>
                 <% users.forEach(user => { %>
                 <tr data-email="<%= user.email %>" data-access="<%= user.accessCount %>" data-fetch="<%= user.fetchCount %>" data-blocked="<%= user.blockedCount %>" data-max="<%= user.maxSessions %>">
+                    <td><input type="checkbox" class="select-user"></td>
                     <td><%= user.email %></td>
                     <td>
                         <% if(user.verified) { %>
@@ -167,6 +190,64 @@
             } catch (error) {
                 alert('Erro ao remover usuários');
             }
+        });
+        document.getElementById('deleteAllBtn').addEventListener('click', async function() {
+            if (!confirm('Remover TODOS os usuários?')) return;
+            try {
+                const response = await fetch('/admin/users/delete-all', { method: 'POST' });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Erro ao remover usuários');
+                }
+            } catch (error) {
+                alert('Erro ao remover usuários');
+            }
+        });
+        document.getElementById('deleteSelectedBtn').addEventListener('click', async function() {
+            const selected = Array.from(document.querySelectorAll('.select-user:checked')).map(cb => cb.closest('tr').dataset.email);
+            if (selected.length === 0) {
+                alert('Nenhum usuário selecionado');
+                return;
+            }
+            if (!confirm(`Remover ${selected.length} usuário(s)?`)) {
+                return;
+            }
+            try {
+                const response = await fetch('/admin/users/bulk-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: selected })
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Erro ao remover usuários');
+                }
+            } catch (error) {
+                alert('Erro ao remover usuários');
+            }
+        });
+        function updateDeleteSelectedBtn() {
+            const any = document.querySelectorAll('.select-user:checked').length > 0;
+            const btn = document.getElementById('deleteSelectedBtn');
+            btn.style.display = any ? 'inline-block' : 'none';
+        }
+        document.getElementById('selectAllUsers').addEventListener('change', function() {
+            const checked = this.checked;
+            document.querySelectorAll('.select-user').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateDeleteSelectedBtn();
+        });
+        document.querySelectorAll('.select-user').forEach(cb => {
+            cb.addEventListener('change', updateDeleteSelectedBtn);
+        });
+        document.getElementById('userLimit').addEventListener('change', function() {
+            const params = new URLSearchParams(window.location.search);
+            params.set('limit', this.value);
+            params.set('page', 1);
+            window.location.search = params.toString();
         });
         resetAllSessionsBtn.addEventListener('click', async function() {
             if (confirm('Deseja resetar sessões de todos os usuários?')) {

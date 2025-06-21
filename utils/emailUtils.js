@@ -170,10 +170,26 @@ async function fetchImapCodes(db, email, limit = 5) {
                 const rec = {
                   code: m[1],
                   email: emailAddr || 'unknown',
-                  fetchedAt: new Date()
+                  fetchedAt: new Date(),
+                  receivedAt: parsed.date || new Date()
                 };
-                await db.collection('codes').insertOne(rec).catch(() => { });
-                records.push(rec);
+
+                const result = await db
+                  .collection('codes')
+                  .updateOne(
+                    { email: rec.email, code: rec.code },
+                    { $setOnInsert: rec },
+                    { upsert: true }
+                  )
+                  .catch(() => ({ upsertedCount: 0 }));
+
+                if (result.upsertedCount > 0) {
+                  records.push(rec);
+                } else {
+                  console.log(
+                    `↩️  Duplicate code for ${rec.email} ignored: ${rec.code}`
+                  );
+                }
               } catch (e) {
                 console.error('⚠️ Error processing message:', e);
               }

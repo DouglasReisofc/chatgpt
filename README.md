@@ -97,6 +97,10 @@ chatgpt-codes-system/
 - ✅ Autenticação por email com código de verificação
 - ✅ Sistema de sessões
 - ✅ Gerenciamento de códigos do ChatGPT
+- ✅ Códigos listados pelo horário de recebimento do email
+- ✅ Códigos duplicados ignorados automaticamente
+- ✅ Exclusão em massa de usuários no painel admin
+- ✅ Paginação na lista de usuários (50, 100 ou 500 por página)
 - ✅ Interface web responsiva
 - ✅ Logs de acesso
 - ✅ MongoDB local automático (sem instalação manual!)

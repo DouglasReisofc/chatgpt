@@ -121,7 +121,10 @@
         <% if (codes && codes.length > 0) { %>
             <% codes
                 .slice()
-                .sort((a, b) => new Date(b.fetchedAt) - new Date(a.fetchedAt))
+                .sort((a, b) =>
+                    new Date(b.receivedAt || b.fetchedAt) -
+                    new Date(a.receivedAt || a.fetchedAt)
+                )
                 .forEach(function(code, index) { %>
                 <div class="col-lg-4 col-md-6">
                     <div class="code-card">

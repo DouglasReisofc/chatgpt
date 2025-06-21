@@ -526,16 +526,17 @@ router.get('/codes', async (req, res) => {
     const codes = await db
       .collection('codes')
       .aggregate([
-        { $sort: { fetchedAt: -1 } },
+        { $sort: { receivedAt: -1, fetchedAt: -1 } },
         {
           $group: {
             _id: '$email',
             email: { $first: '$email' },
             code: { $first: '$code' },
+            receivedAt: { $first: '$receivedAt' },
             fetchedAt: { $first: '$fetchedAt' }
           }
         },
-        { $sort: { fetchedAt: -1 } },
+        { $sort: { receivedAt: -1, fetchedAt: -1 } },
         { $limit: limit }
       ])
       .toArray();

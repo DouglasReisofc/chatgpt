@@ -889,7 +889,23 @@ router.post('/settings/colors', requireAdmin, async (req, res) => {
 router.get('/users', requireAdmin, adminLayout, async (req, res) => {
     const db = req.db;
     try {
-        const users = await db.collection('users').find().toArray();
+        let { limit = '100', page = '1' } = req.query;
+
+        let nLimit = parseInt(limit, 10);
+        if (isNaN(nLimit) || nLimit < 1) nLimit = 100;
+        if (nLimit > 500) nLimit = 500;
+
+        let pageNum = parseInt(page, 10);
+        if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+
+        const total = await db.collection('users').countDocuments();
+        const users = await db
+            .collection('users')
+            .find()
+            .sort({ email: 1 })
+            .skip((pageNum - 1) * nLimit)
+            .limit(nLimit)
+            .toArray();
 
         const successCounts = await db
             .collection('access_logs')
@@ -952,6 +968,12 @@ router.get('/users', requireAdmin, adminLayout, async (req, res) => {
             title: 'Manage Users',
             users: decorated,
             globalSettings,
+            pagination: {
+                total,
+                page: pageNum,
+                pages: Math.ceil(total / nLimit),
+                limit: nLimit
+            },
             page: 'users'
         });
     } catch (error) {
@@ -1051,6 +1073,19 @@ router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
         res.json({ success: true, removed: result.deletedCount });
     } catch (error) {
         console.error('Error deleting users:', error);
+        res.status(500).json({ error: 'Failed to delete users' });
+    }
+});
+
+// Delete all users
+router.post('/users/delete-all', requireAdmin, async (req, res) => {
+    const db = req.db;
+    try {
+        await db.collection('users').deleteMany({});
+        await db.collection('verification_codes').deleteMany({});
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting all users:', error);
         res.status(500).json({ error: 'Failed to delete users' });
     }
 });
