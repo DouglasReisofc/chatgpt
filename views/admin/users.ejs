@@ -7,6 +7,9 @@
         <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteUsersModal">
             <i class="fas fa-trash me-2"></i>Remover Emails
         </button>
+        <button class="btn btn-danger me-2" id="deleteSelectedBtn">
+            <i class="fas fa-trash-alt me-2"></i>Apagar Selecionados
+        </button>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
             <i class="fas fa-plus me-2"></i>Adicionar Usuário
         </button>
@@ -27,6 +30,7 @@
         <table class="table" id="usersTable">
             <thead>
                 <tr>
+                    <th><input type="checkbox" id="selectAllUsers"></th>
                     <th>Email</th>
                     <th>Status</th>
                     <th>Último Login</th>
@@ -40,6 +44,7 @@
             <tbody>
                 <% users.forEach(user => { %>
                 <tr data-email="<%= user.email %>" data-access="<%= user.accessCount %>" data-fetch="<%= user.fetchCount %>" data-blocked="<%= user.blockedCount %>" data-max="<%= user.maxSessions %>">
+                    <td><input type="checkbox" class="select-user"></td>
                     <td><%= user.email %></td>
                     <td>
                         <% if(user.verified) { %>
@@ -167,6 +172,36 @@
             } catch (error) {
                 alert('Erro ao remover usuários');
             }
+        });
+        document.getElementById('deleteSelectedBtn').addEventListener('click', async function() {
+            const selected = Array.from(document.querySelectorAll('.select-user:checked')).map(cb => cb.closest('tr').dataset.email);
+            if (selected.length === 0) {
+                alert('Nenhum usuário selecionado');
+                return;
+            }
+            if (!confirm(`Remover ${selected.length} usuário(s)?`)) {
+                return;
+            }
+            try {
+                const response = await fetch('/admin/users/bulk-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: selected })
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Erro ao remover usuários');
+                }
+            } catch (error) {
+                alert('Erro ao remover usuários');
+            }
+        });
+        document.getElementById('selectAllUsers').addEventListener('change', function() {
+            const checked = this.checked;
+            document.querySelectorAll('.select-user').forEach(cb => {
+                cb.checked = checked;
+            });
         });
         resetAllSessionsBtn.addEventListener('click', async function() {
             if (confirm('Deseja resetar sessões de todos os usuários?')) {

@@ -99,6 +99,7 @@ chatgpt-codes-system/
 - ✅ Gerenciamento de códigos do ChatGPT
 - ✅ Códigos listados pelo horário de recebimento do email
 - ✅ Códigos duplicados ignorados automaticamente
+- ✅ Exclusão em massa de usuários no painel admin
 - ✅ Interface web responsiva
 - ✅ Logs de acesso
 - ✅ MongoDB local automático (sem instalação manual!)
