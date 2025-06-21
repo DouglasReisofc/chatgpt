@@ -79,6 +79,28 @@
 </div>
 
 <div class="table-container">
+    <h4 class="mb-3">Top Acessos</h4>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Logins</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% topAccesses.forEach(a => { %>
+                <tr>
+                    <td><%= a._id %></td>
+                    <td><%= a.count %></td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="table-container">
     <h4 class="mb-3">Logs Recentes</h4>
     <div class="table-responsive">
         <table class="table">

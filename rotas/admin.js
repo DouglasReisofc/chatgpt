@@ -184,12 +184,22 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             ])
             .toArray();
 
+        const topAccesses = await db.collection('access_logs')
+            .aggregate([
+                { $match: { action: { $in: ['Login sucesso', 'verification_success'] } } },
+                { $group: { _id: '$email', count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 5 }
+            ])
+            .toArray();
+
         res.render('admin/dashboard', {
             title: 'Admin Dashboard',
             stats,
             recentUsers,
             recentLogs,
             topFetchers,
+            topAccesses,
             page: 'dashboard'
         });
     } catch (error) {
@@ -345,6 +355,9 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
         const reloadSetting =
             (await db.collection('settings').findOne({ key: 'autoReload' })) ||
             { enabled: true, limit: 3 };
+        const verificationSetting =
+            (await db.collection('settings').findOne({ key: 'emailVerification' })) ||
+            { enabled: true };
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
             codeLimit: codeLimitSetting.limit || 5,
@@ -353,6 +366,9 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             reload: {
                 enabled: reloadSetting.enabled !== false,
                 limit: reloadSetting.limit || 3
+            },
+            verification: {
+                enabled: verificationSetting.enabled !== false
             },
             page: 'settings'
         });
@@ -710,6 +726,24 @@ router.post('/settings/auto-reload', requireAdmin, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Error saving auto reload setting:', error);
+        res.status(500).json({ error: 'Failed to save setting' });
+    }
+});
+
+// Update email verification setting
+router.post('/settings/email-verification', requireAdmin, async (req, res) => {
+    const { enabled } = req.body;
+    const db = req.db;
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'emailVerification' },
+            { $set: { enabled: !!enabled } },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving email verification setting:', error);
         res.status(500).json({ error: 'Failed to save setting' });
     }
 });

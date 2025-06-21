@@ -54,6 +54,20 @@
 
 <div class="card settings-card mt-4">
     <div class="card-body">
+        <h4 class="card-title mb-4">Verificação por Código</h4>
+        <form id="verificationFormSetting">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="verificationEnabled" <%= verification.enabled ? 'checked' : '' %>>
+                <label class="form-check-label" for="verificationEnabled">Exigir Código de Verificação</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+        <div id="verificationMessage" class="mt-3"></div>
+    </div>
+</div>
+
+<div class="card settings-card mt-4">
+    <div class="card-body">
         <h4 class="card-title mb-4">Branding</h4>
         <form id="brandingForm" enctype="multipart/form-data">
             <div class="mb-3">
@@ -165,6 +179,8 @@
         const reloadForm = document.getElementById('reloadSettingsForm');
         const reloadEnabled = document.getElementById('reloadEnabled');
         const reloadLimit = document.getElementById('reloadLimit');
+        const verificationForm = document.getElementById('verificationFormSetting');
+        const verificationEnabled = document.getElementById('verificationEnabled');
         const colorsForm = document.getElementById('colorsForm');
         const bgStart = document.getElementById('bgStart');
         const bgEnd = document.getElementById('bgEnd');
@@ -253,6 +269,25 @@
                 }
             } catch (err) {
                 showMessage('reloadSettingsMessage', 'Erro ao salvar', 'danger');
+            }
+        });
+
+        verificationForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const enabled = verificationEnabled.checked;
+            try {
+                const res = await fetch('/admin/settings/email-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled })
+                });
+                if (res.ok) {
+                    showMessage('verificationMessage', 'Configuração salva', 'success');
+                } else {
+                    showMessage('verificationMessage', 'Erro ao salvar', 'danger');
+                }
+            } catch (err) {
+                showMessage('verificationMessage', 'Erro ao salvar', 'danger');
             }
         });
 
