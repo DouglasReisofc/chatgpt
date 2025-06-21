@@ -119,7 +119,10 @@
     <!-- Codes Section -->
     <div class="row">
         <% if (codes && codes.length > 0) { %>
-            <% codes.forEach(function(code, index) { %>
+            <% codes
+                .slice()
+                .sort((a, b) => new Date(b.fetchedAt) - new Date(a.fetchedAt))
+                .forEach(function(code, index) { %>
                 <div class="col-lg-4 col-md-6">
                     <div class="code-card">
                         <div class="code-card-header">
