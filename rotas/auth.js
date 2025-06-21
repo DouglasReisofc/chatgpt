@@ -314,17 +314,18 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
       return res.status(500).json({ error: 'Database connection error' });
     }
 
+    const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
+
     // Check if user exists in admin panel
     const userExists = await db.collection('users').findOne({ email });
     console.log('👤 User exists in database:', userExists ? 'Yes' : 'No');
 
     if (!userExists) {
       console.log('❌ Email not found in admin panel. User must be added by admin first.');
-      return res.status(403).json({ error: 'Email not authorized. Contact administrator.' });
+      return res.status(403).json({ error: messages.emailNotAuthorized || 'Email not authorized. Contact administrator.' });
     }
 
     const sessionLimitSetting = await db.collection('settings').findOne({ key: 'sessionLimit' });
-    const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
     const limitEnabled =
       !sessionLimitSetting || sessionLimitSetting.limitEnabled !== false;
 

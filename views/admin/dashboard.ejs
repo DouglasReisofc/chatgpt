@@ -25,31 +25,6 @@
         </div>
     </div>
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const select = document.getElementById('topLimitSelect');
-        if (select) {
-            select.addEventListener('change', function() {
-                const params = new URLSearchParams(window.location.search);
-                params.set('topLimit', this.value);
-                window.location.search = params.toString();
-            });
-        }
-    });
-</script>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const select = document.getElementById('topLimitSelect');
-        if (select) {
-            select.addEventListener('change', function() {
-                const params = new URLSearchParams(window.location.search);
-                params.set('topLimit', this.value);
-                window.location.search = params.toString();
-            });
-        }
-    });
-</script>
 
 <div class="table-container mb-4">
     <h4 class="mb-3">Usuários Recentes</h4>

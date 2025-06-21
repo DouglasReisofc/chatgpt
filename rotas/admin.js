@@ -414,7 +414,9 @@ router.get('/messages', requireAdmin, adminLayout, async (req, res) => {
                 sessionExpired: 'Sessão expirada. Faça login novamente.',
                 invalidCode: 'Código inválido.',
                 ipBlocked:
-                    'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde'
+                    'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde',
+                emailNotAuthorized:
+                    'Email não autorizado. Contate o administrador.'
             };
         res.render('admin/messages', {
             title: 'Mensagens do Sistema',
@@ -429,7 +431,7 @@ router.get('/messages', requireAdmin, adminLayout, async (req, res) => {
 
 // Update system messages
 router.post('/messages', requireAdmin, async (req, res) => {
-    const { sessionLimitReached, sessionExpired, invalidCode, ipBlocked } = req.body;
+    const { sessionLimitReached, sessionExpired, invalidCode, ipBlocked, emailNotAuthorized } = req.body;
     const db = req.db;
 
     try {
@@ -440,7 +442,8 @@ router.post('/messages', requireAdmin, async (req, res) => {
                     sessionLimitReached,
                     sessionExpired,
                     invalidCode,
-                    ipBlocked
+                    ipBlocked,
+                    emailNotAuthorized
                 }
             },
             { upsert: true }
