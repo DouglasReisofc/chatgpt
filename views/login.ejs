@@ -33,7 +33,7 @@
                     <div id="loginForm">
                         <div class="mb-3">
                             <label for="email" class="form-label">
-                                <i class="fas fa-envelope me-2"></i><%= messages.emailLabel || 'Email' %>
+                                <i class="fas fa-envelope me-2"></i><%= typeof messages !== 'undefined' && messages.emailLabel ? messages.emailLabel : 'Email' %>
                             </label>
                             <input type="email" class="form-control" id="email" required>
                         </div>
