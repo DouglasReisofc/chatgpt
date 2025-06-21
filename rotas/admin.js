@@ -175,14 +175,6 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             .limit(10)
             .toArray();
 
-        const topFetchers = await db.collection('access_logs')
-            .aggregate([
-                { $match: { action: 'Códigos recarregados' } },
-                { $group: { _id: '$email', count: { $sum: 1 } } },
-                { $sort: { count: -1 } },
-                { $limit: 5 }
-            ])
-            .toArray();
 
         const topAccesses = await db.collection('access_logs')
             .aggregate([
@@ -198,7 +190,6 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             stats,
             recentUsers,
             recentLogs,
-            topFetchers,
             topAccesses,
             page: 'dashboard'
         });
