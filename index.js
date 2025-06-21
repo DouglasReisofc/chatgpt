@@ -4,6 +4,7 @@ const path = require('path');
 const { MongoClient } = require('mongodb');
 const session = require('express-session');
 const expressLayouts = require('express-ejs-layouts');
+const { startSessionResetCron } = require('./utils/sessionUtils');
 
 const app = express();
 app.set('trust proxy', true);
@@ -115,6 +116,7 @@ app.use('/admin', adminRoutes);
 
 // Initialize MongoDB connection and start server
 connectToMongoDB().then(() => {
+  startSessionResetCron(db);
   app.listen(port, () => {
     console.log(`Server running on http://127.0.0.1:${port}`);
   });

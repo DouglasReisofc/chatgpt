@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const axios = require('axios');
 const path = require('path');
 const multer = require('multer');
+const { resetAllSessions, startSessionResetCron } = require('../utils/sessionUtils');
 
 const uploadDir = path.join(__dirname, '..', 'public', 'images');
 const storage = multer.diskStorage({
@@ -349,6 +350,9 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
         const verificationSetting =
             (await db.collection('settings').findOne({ key: 'emailVerification' })) ||
             { enabled: true };
+        const resetCronSetting =
+            (await db.collection('settings').findOne({ key: 'sessionResetCron' })) ||
+            { enabled: false, hours: 24 };
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
             codeLimit: codeLimitSetting.limit || 5,
@@ -360,6 +364,10 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             },
             verification: {
                 enabled: verificationSetting.enabled !== false
+            },
+            resetCron: {
+                enabled: resetCronSetting.enabled !== false,
+                hours: resetCronSetting.hours || 24
             },
             page: 'settings'
         });
@@ -666,29 +674,36 @@ router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
     const db = req.db;
 
     try {
-        await db.collection('active_sessions').deleteMany({});
-        await db.collection('verification_codes').deleteMany({});
-
-        const globalSettings =
-            (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
-                limitEnabled: true,
-                durationEnabled: true,
-                maxSessions: 3,
-                sessionDuration: 5
-            };
-
-        await db.collection('users').updateMany({}, {
-            $set: {
-                maxSessions: globalSettings.maxSessions,
-                sessionDuration: globalSettings.sessionDuration
-            }
-        });
-
+        await resetAllSessions(db);
         console.log('All sessions reset by admin:', req.session.admin.username);
         res.json({ success: true });
     } catch (error) {
         console.error('Error resetting sessions:', error);
         res.status(500).json({ error: 'Failed to reset sessions' });
+    }
+});
+
+// Update session reset cron setting
+router.post('/settings/reset-cron', requireAdmin, async (req, res) => {
+    const { enabled, hours } = req.body;
+    const db = req.db;
+
+    const interval = parseInt(hours);
+    if (enabled && (!Number.isInteger(interval) || interval <= 0)) {
+        return res.status(400).json({ error: 'Invalid hours' });
+    }
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'sessionResetCron' },
+            { $set: { enabled: !!enabled, hours: interval || 24 } },
+            { upsert: true }
+        );
+        await startSessionResetCron(db);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving reset cron setting:', error);
+        res.status(500).json({ error: 'Failed to save setting' });
     }
 });
 
