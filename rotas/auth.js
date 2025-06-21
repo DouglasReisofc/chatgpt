@@ -259,7 +259,8 @@ router.get('/', checkBlockedIP, async (req, res) => {
       user: null,
       branding,
       colors,
-      errorMessage
+      errorMessage,
+      messages
     });
   }
 
@@ -281,6 +282,7 @@ router.get('/', checkBlockedIP, async (req, res) => {
     branding,
     colors,
     errorMessage,
+    messages,
     verificationRequired: verificationSetting.enabled !== false
   });
 });
