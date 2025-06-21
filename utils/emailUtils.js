@@ -202,7 +202,20 @@ async function fetchImapCodes(db, email, limit = 5) {
   });
 }
 
+async function fetchImapCodesRetry(db, email, limit = 5, attempts = 2) {
+  let records = [];
+  for (let i = 0; i < attempts; i++) {
+    records = await fetchImapCodes(db, email, limit);
+    if (records.length > 0) break;
+    if (i < attempts - 1) {
+      console.log(`🔄 Retry fetching codes (${i + 2}/${attempts})`);
+    }
+  }
+  return records;
+}
+
 module.exports = {
   getTransporter,
-  fetchImapCodes
+  fetchImapCodes,
+  fetchImapCodesRetry
 };

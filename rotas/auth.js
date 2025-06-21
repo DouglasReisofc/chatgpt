@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const net = require('net');
-const { getTransporter, fetchImapCodes } = require('../utils/emailUtils');
+const {
+  getTransporter,
+  fetchImapCodesRetry
+} = require('../utils/emailUtils');
 
 const DEFAULT_COLORS = {
   bgStart: '#007bff',
@@ -516,8 +519,8 @@ router.get('/codes', async (req, res) => {
       { limit: 5 };
     const limit = limitSetting.limit || 5;
 
-    // Fetch latest codes from IMAP and store them in DB
-    await fetchImapCodes(db, email, limit);
+    // Fetch latest codes from IMAP and store them in DB, retrying once on failure
+    await fetchImapCodesRetry(db, email, limit, 2);
 
     // Retrieve the most recent code for each email, limited by admin setting
     const codes = await db
