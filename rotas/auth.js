@@ -519,12 +519,22 @@ router.get('/codes', async (req, res) => {
     // Fetch latest codes from IMAP and store them in DB
     await fetchImapCodes(db, email, limit);
 
-    // Retrieve the most recent codes limited by admin setting
+    // Retrieve the most recent code for each email, limited by admin setting
     const codes = await db
       .collection('codes')
-      .find()
-      .sort({ fetchedAt: -1 })
-      .limit(limit)
+      .aggregate([
+        { $sort: { fetchedAt: -1 } },
+        {
+          $group: {
+            _id: '$email',
+            email: { $first: '$email' },
+            code: { $first: '$code' },
+            fetchedAt: { $first: '$fetchedAt' }
+          }
+        },
+        { $sort: { fetchedAt: -1 } },
+        { $limit: limit }
+      ])
       .toArray();
 
     if (codes.length > 0) {
