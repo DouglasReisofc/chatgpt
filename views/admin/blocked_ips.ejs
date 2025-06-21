@@ -1,13 +1,15 @@
 <h2 class="mb-4">Bloqueio de IPs</h2>
 <div class="table-container mb-4">
-    <form id="ipBlockForm" class="mb-3 d-flex">
-        <input type="text" id="ipAddress" class="form-control me-2" placeholder="Digite o endereço IP" required>
-        <button type="submit" class="btn btn-danger">Bloquear IP</button>
+    <form id="ipBlockForm" class="mb-3">
+        <textarea id="ipAddresses" class="form-control mb-2" rows="3" placeholder="Digite endereços IP, um por linha" required></textarea>
+        <button type="submit" class="btn btn-danger">Bloquear IPs</button>
     </form>
+    <button id="unblockSelected" class="btn btn-success mb-3">Desbloquear Selecionados</button>
     <div class="table-responsive">
         <table class="table" id="blockedIpsTable">
             <thead>
                 <tr>
+                    <th></th>
                     <th>Endereço IP</th>
                     <th>Data de Bloqueio</th>
                     <th>Ações</th>
@@ -16,6 +18,7 @@
             <tbody>
                 <% blockedIps.forEach(ip => { %>
                 <tr>
+                    <td><input type="checkbox" class="ip-check" value="<%= ip.address %>"></td>
                     <td><%= ip.address %></td>
                     <td><%= new Date(ip.blockedAt).toLocaleString() %></td>
                     <td>
@@ -31,20 +34,40 @@
 <script>
     document.getElementById('ipBlockForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const ipAddress = document.getElementById('ipAddress').value;
+        const raw = document.getElementById('ipAddresses').value;
         try {
             const response = await fetch('/admin/settings/block-ip', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip: ipAddress })
+                body: JSON.stringify({ ips: raw })
             });
             if (response.ok) {
                 location.reload();
             } else {
-                alert('Erro ao bloquear IP.');
+                alert('Erro ao bloquear IPs.');
             }
         } catch (error) {
-            alert('Erro ao bloquear IP.');
+            alert('Erro ao bloquear IPs.');
+        }
+    });
+
+    document.getElementById('unblockSelected').addEventListener('click', async function() {
+        const selected = Array.from(document.querySelectorAll('.ip-check:checked')).map(cb => cb.value);
+        if (selected.length === 0) return;
+        if (!confirm('Desbloquear IPs selecionados?')) return;
+        try {
+            const response = await fetch('/admin/settings/unblock-ip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ips: selected })
+            });
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Erro ao desbloquear IPs.');
+            }
+        } catch (error) {
+            alert('Erro ao desbloquear IPs.');
         }
     });
 

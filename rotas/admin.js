@@ -177,12 +177,15 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             .toArray();
 
 
+        let topLimit = parseInt(req.query.topLimit, 10);
+        if (isNaN(topLimit) || topLimit <= 0) topLimit = 5;
+
         const topAccesses = await db.collection('access_logs')
             .aggregate([
                 { $match: { action: { $in: ['Login sucesso', 'verification_success'] } } },
                 { $group: { _id: '$email', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
-                { $limit: 5 }
+                { $limit: topLimit }
             ])
             .toArray();
 
@@ -192,6 +195,7 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             recentUsers,
             recentLogs,
             topAccesses,
+            topLimit,
             page: 'dashboard'
         });
     } catch (error) {
@@ -610,27 +614,41 @@ router.post('/settings/session-limit', requireAdmin, async (req, res) => {
 
 // Block IP
 router.post('/settings/block-ip', requireAdmin, async (req, res) => {
-    const { ip } = req.body;
+    let { ip, ips } = req.body;
     const db = req.db;
 
-    if (!ip) {
+    if (!ips) ips = ip;
+
+    if (typeof ips === 'string') {
+        ips = ips.split(/[\s,;\n]+/);
+    }
+
+    if (!Array.isArray(ips) || ips.length === 0) {
         return res.status(400).json({ error: 'IP address is required' });
     }
 
+    const cleaned = ips.map(i => String(i).trim()).filter(Boolean);
+    if (cleaned.length === 0) {
+        return res.status(400).json({ error: 'No valid IPs provided' });
+    }
+
     try {
-        // Check if IP is already blocked
-        const existingBlock = await db.collection('blocked_ips').findOne({ address: ip });
-        if (existingBlock) {
-            return res.status(400).json({ error: 'IP already blocked' });
+        const existing = await db
+            .collection('blocked_ips')
+            .find({ address: { $in: cleaned } })
+            .toArray();
+        const existingSet = new Set(existing.map(b => b.address));
+        const toInsert = cleaned
+            .filter(i => !existingSet.has(i))
+            .map(i => ({
+                address: i,
+                blockedAt: new Date(),
+                blockedBy: req.session.admin.username
+            }));
+        if (toInsert.length > 0) {
+            await db.collection('blocked_ips').insertMany(toInsert);
         }
-
-        await db.collection('blocked_ips').insertOne({
-            address: ip,
-            blockedAt: new Date(),
-            blockedBy: req.session.admin.username
-        });
-
-        res.json({ success: true });
+        res.json({ success: true, blocked: toInsert.length });
     } catch (error) {
         console.error('Error blocking IP:', error);
         res.status(500).json({ error: 'Failed to block IP' });
@@ -639,16 +657,26 @@ router.post('/settings/block-ip', requireAdmin, async (req, res) => {
 
 // Unblock IP
 router.post('/settings/unblock-ip', requireAdmin, async (req, res) => {
-    const { ip } = req.body;
+    let { ip, ips } = req.body;
     const db = req.db;
 
-    if (!ip) {
+    if (!ips) ips = ip;
+    if (typeof ips === 'string') {
+        ips = ips.split(/[\s,;\n]+/);
+    }
+
+    if (!Array.isArray(ips) || ips.length === 0) {
         return res.status(400).json({ error: 'IP address is required' });
     }
 
+    const cleaned = ips.map(i => String(i).trim()).filter(Boolean);
+    if (cleaned.length === 0) {
+        return res.status(400).json({ error: 'No valid IPs provided' });
+    }
+
     try {
-        await db.collection('blocked_ips').deleteOne({ address: ip });
-        res.json({ success: true });
+        const result = await db.collection('blocked_ips').deleteMany({ address: { $in: cleaned } });
+        res.json({ success: true, removed: result.deletedCount });
     } catch (error) {
         console.error('Error unblocking IP:', error);
         res.status(500).json({ error: 'Failed to unblock IP' });
@@ -988,6 +1016,37 @@ router.post('/users', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error adding user:', error);
         res.status(500).json({ error: 'Failed to add user' });
+    }
+});
+
+// Delete users in bulk
+router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
+    let { emails } = req.body;
+    const db = req.db;
+
+    if (typeof emails === 'string') {
+        emails = emails.split(/[\s,;\n]+/);
+    }
+
+    if (!Array.isArray(emails) || emails.length === 0) {
+        return res.status(400).json({ error: 'No emails provided' });
+    }
+
+    const cleaned = emails
+        .map(e => String(e).trim().toLowerCase())
+        .filter(e => e);
+
+    if (cleaned.length === 0) {
+        return res.status(400).json({ error: 'No valid emails provided' });
+    }
+
+    try {
+        const result = await db.collection('users').deleteMany({ email: { $in: cleaned } });
+        await db.collection('verification_codes').deleteMany({ email: { $in: cleaned } });
+        res.json({ success: true, removed: result.deletedCount });
+    } catch (error) {
+        console.error('Error deleting users:', error);
+        res.status(500).json({ error: 'Failed to delete users' });
     }
 });
 

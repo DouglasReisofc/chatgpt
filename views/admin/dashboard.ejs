@@ -25,6 +25,31 @@
         </div>
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const select = document.getElementById('topLimitSelect');
+        if (select) {
+            select.addEventListener('change', function() {
+                const params = new URLSearchParams(window.location.search);
+                params.set('topLimit', this.value);
+                window.location.search = params.toString();
+            });
+        }
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const select = document.getElementById('topLimitSelect');
+        if (select) {
+            select.addEventListener('change', function() {
+                const params = new URLSearchParams(window.location.search);
+                params.set('topLimit', this.value);
+                window.location.search = params.toString();
+            });
+        }
+    });
+</script>
 
 <div class="table-container mb-4">
     <h4 class="mb-3">Usuários Recentes</h4>
@@ -58,7 +83,14 @@
 
 
 <div class="table-container">
-    <h4 class="mb-3">Top Acessos</h4>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h4 class="m-0">Top Acessos</h4>
+        <select id="topLimitSelect" class="form-select form-select-sm" style="width:auto;">
+            <% [5,10,20,50].forEach(n => { %>
+                <option value="<%= n %>" <%= n == topLimit ? 'selected' : '' %>><%= n %></option>
+            <% }); %>
+        </select>
+    </div>
     <div class="table-responsive">
         <table class="table">
             <thead>
@@ -116,3 +148,16 @@
         </table>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const select = document.getElementById("topLimitSelect");
+        if (select) {
+            select.addEventListener("change", function() {
+                const params = new URLSearchParams(window.location.search);
+                params.set("topLimit", this.value);
+                window.location.search = params.toString();
+            });
+        }
+    });
+</script>
