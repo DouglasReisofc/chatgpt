@@ -27,15 +27,6 @@ body {
     width: 100%;
   }
 }
-.admin-wrapper {
-  display: flex;
-  flex-direction: column;
-}
-@media (min-width: 768px) {
-  .admin-wrapper {
-    flex-direction: row;
-  }
-}
 .nav-link {
   color: var(--sidebar-color);
   padding: 1rem;
