@@ -1,6 +1,12 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Gerenciar Usuários</h2>
     <div>
+        <button class="btn btn-warning me-2" id="resetAllSessionsBtn">
+            <i class="fas fa-power-off me-2"></i>Resetar Sessões
+        </button>
+        <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteUsersModal">
+            <i class="fas fa-trash me-2"></i>Remover Emails
+        </button>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
             <i class="fas fa-plus me-2"></i>Adicionar Usuário
         </button>
@@ -94,12 +100,37 @@
     </div>
 </div>
 
+<!-- Delete Users Modal -->
+<div class="modal fade" id="deleteUsersModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Remover Usuários</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="deleteUsersForm">
+                    <div class="mb-3">
+                        <label for="deleteEmails" class="form-label">Emails (um por linha ou separados por vírgula)</label>
+                        <textarea id="deleteEmails" class="form-control" rows="4" placeholder="exemplo1@site.com, exemplo2@site.com" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="deleteUsersBtn">Remover</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const GLOBAL_DEFAULTS = {
             maxSessions: <%= globalSettings.maxSessions %>,
             sessionDuration: <%= globalSettings.sessionDuration %>
         };
+        const resetAllSessionsBtn = document.getElementById('resetAllSessionsBtn');
         document.getElementById('addUserBtn').addEventListener('click', async function() {
             const raw = document.getElementById('emails').value;
             try {
@@ -118,6 +149,37 @@
             } catch (error) {
                 console.error('Error:', error);
                 alert('Erro ao adicionar usuário');
+            }
+        });
+        document.getElementById('deleteUsersBtn').addEventListener('click', async function() {
+            const raw = document.getElementById('deleteEmails').value;
+            try {
+                const response = await fetch('/admin/users/bulk-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: raw })
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Erro ao remover usuários');
+                }
+            } catch (error) {
+                alert('Erro ao remover usuários');
+            }
+        });
+        resetAllSessionsBtn.addEventListener('click', async function() {
+            if (confirm('Deseja resetar sessões de todos os usuários?')) {
+                try {
+                    const response = await fetch('/admin/settings/reset-sessions', { method: 'POST' });
+                    if (response.ok) {
+                        alert('Sessões resetadas');
+                    } else {
+                        alert('Erro ao resetar sessões');
+                    }
+                } catch (err) {
+                    alert('Erro ao resetar sessões');
+                }
             }
         });
         document.querySelectorAll('.reset-session').forEach(button => {

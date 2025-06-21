@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const net = require('net');
-const { getTransporter, fetchImapCodes } = require('../utils/emailUtils');
+const {
+  getTransporter,
+  fetchImapCodesRetry
+} = require('../utils/emailUtils');
 
 const DEFAULT_COLORS = {
   bgStart: '#007bff',
@@ -26,7 +29,7 @@ function generateCode() {
 
 function isPrivateIP(ip) {
   if (!ip) return true;
-  if (ip === '::1' || ip === 'localhost') return true;
+  if (ip === '::1' || ip === '127.0.0.1') return true;
   const privateRanges = [/^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./];
   return privateRanges.some(r => r.test(ip));
 }
@@ -108,6 +111,106 @@ async function getIPInfo(ip) {
   }
 }
 
+async function completeLogin(db, req, email, ip, ipInfo, referer) {
+  const user = await db.collection('users').findOne({ email });
+  const sessionLimitSetting =
+    (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
+      limitEnabled: true,
+      durationEnabled: true,
+      maxSessions: 3,
+      sessionDuration: 5
+    };
+  const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
+
+  const currentMax =
+    user && typeof user.maxSessions === 'number'
+      ? user.maxSessions
+      : sessionLimitSetting.maxSessions;
+
+  if (sessionLimitSetting.limitEnabled !== false && currentMax <= 0) {
+    await db.collection('access_logs').insertOne({
+      email,
+      action: 'Limite de sessão atingido',
+      timestamp: new Date(),
+      ip,
+      country: ipInfo.country || 'Desconhecido',
+      referer,
+      ipInfo
+    });
+    return { error: messages.sessionLimitReached || 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' };
+  }
+
+  const userUpdate = {
+    $set: { lastLogin: new Date(), verified: true }
+  };
+  if (sessionLimitSetting.limitEnabled !== false) {
+    userUpdate.$inc = { maxSessions: -1 };
+  }
+  const updateQuery =
+    sessionLimitSetting.limitEnabled !== false
+      ? { email, maxSessions: { $gt: 0 } }
+      : { email };
+  const updateResult = await db.collection('users').updateOne(updateQuery, userUpdate);
+
+  if (sessionLimitSetting.limitEnabled !== false && updateResult.matchedCount === 0) {
+    await db.collection('access_logs').insertOne({
+      email,
+      action: 'Limite de sessão atingido',
+      timestamp: new Date(),
+      ip,
+      country: ipInfo.country || 'Desconhecido',
+      referer,
+      ipInfo
+    });
+    return { error: messages.sessionLimitReached || 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' };
+  }
+
+  await db.collection('access_logs').insertOne({
+    email,
+    action: 'Login sucesso',
+    timestamp: new Date(),
+    ip,
+    country: ipInfo.country || 'Desconhecido',
+    referer,
+    ipInfo
+  });
+
+  const sessionId = require('crypto').randomBytes(32).toString('hex');
+  req.session.user = { email, sessionId, ip, ipInfo };
+
+  const sessionDurationMinutes =
+    user && typeof user.sessionDuration === 'number'
+      ? user.sessionDuration
+      : sessionLimitSetting.sessionDuration;
+  const now = new Date();
+  const sessionData = {
+    email,
+    sessionId,
+    createdAt: now,
+    lastActivity: now,
+    ip,
+    userAgent: req.headers['user-agent']
+  };
+  if (sessionLimitSetting.durationEnabled !== false) {
+    sessionData.sessionDuration = sessionDurationMinutes;
+    sessionData.expiresAt = new Date(now.getTime() + sessionDurationMinutes * 60000);
+  }
+  const reloadSetting =
+    (await db.collection('settings').findOne({ key: 'autoReload' })) || {
+      enabled: true,
+      limit: 3
+    };
+  if (reloadSetting.enabled !== false) {
+    sessionData.reloadRemaining = reloadSetting.limit || 3;
+  } else {
+    sessionData.reloadRemaining = 0;
+  }
+  req.session.user.reloadRemaining = sessionData.reloadRemaining;
+
+  await db.collection('active_sessions').insertOne(sessionData);
+  return { success: true };
+}
+
 
 // Check blocked IP middleware
 const checkBlockedIP = async (req, res, next) => {
@@ -159,7 +262,8 @@ router.get('/', checkBlockedIP, async (req, res) => {
       user: null,
       branding,
       colors,
-      errorMessage
+      errorMessage,
+      messages
     });
   }
 
@@ -171,13 +275,18 @@ router.get('/', checkBlockedIP, async (req, res) => {
     };
   const colors =
     (await db.collection('settings').findOne({ key: 'colors' })) || DEFAULT_COLORS;
+  const verificationSetting =
+    (await db.collection('settings').findOne({ key: 'emailVerification' })) ||
+    { enabled: true };
 
   res.render('login', {
     title: 'Login',
     user: null,
     branding,
     colors,
-    errorMessage
+    errorMessage,
+    messages,
+    verificationRequired: verificationSetting.enabled !== false
   });
 });
 
@@ -195,8 +304,12 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
   }
 
   try {
-    const code = generateCode();
     const db = req.db;
+    const verificationSetting =
+      (await db.collection('settings').findOne({ key: 'emailVerification' })) ||
+      { enabled: true };
+    const requireCode = verificationSetting.enabled !== false;
+    const code = requireCode ? generateCode() : null;
 
     console.log('🔢 Generated verification code:', code);
     console.log('💾 Checking database connection...');
@@ -206,17 +319,18 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
       return res.status(500).json({ error: 'Database connection error' });
     }
 
+    const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
+
     // Check if user exists in admin panel
     const userExists = await db.collection('users').findOne({ email });
     console.log('👤 User exists in database:', userExists ? 'Yes' : 'No');
 
     if (!userExists) {
       console.log('❌ Email not found in admin panel. User must be added by admin first.');
-      return res.status(403).json({ error: 'Email not authorized. Contact administrator.' });
+      return res.status(403).json({ error: messages.emailNotAuthorized || 'Email not authorized. Contact administrator.' });
     }
 
     const sessionLimitSetting = await db.collection('settings').findOne({ key: 'sessionLimit' });
-    const messages = (await db.collection('settings').findOne({ key: 'messages' })) || {};
     const limitEnabled =
       !sessionLimitSetting || sessionLimitSetting.limitEnabled !== false;
 
@@ -243,45 +357,58 @@ router.post('/api/login', checkBlockedIP, async (req, res) => {
       }
     }
 
-    // Store verification code in MongoDB
-    console.log('🗑️ Removing old verification codes...');
-    await db.collection('verification_codes').deleteMany({ email });
+    if (requireCode) {
+      console.log('🗑️ Removing old verification codes...');
+      await db.collection('verification_codes').deleteMany({ email });
 
-    console.log('💾 Storing new verification code...');
-    await db.collection('verification_codes').insertOne({
-      email,
-      code,
-      createdAt: new Date()
-    });
+      console.log('💾 Storing new verification code...');
+      await db.collection('verification_codes').insertOne({
+        email,
+        code,
+        createdAt: new Date()
+      });
 
-    console.log('📤 Sending email...');
-    const transporter = await getTransporter(db);
-    const smtpStored = ((await db.collection('settings').findOne({ key: 'emailConfig' })) || {}).smtp || {};
-    const smtpConf = Object.assign(
-      { user: 'contactgestorvip@gmail.com' },
-      smtpStored
-    );
-    const emailResult = await transporter.sendMail({
-      from: `"ChatGPT Code System" <${smtpConf.user}>`,
-      to: email,
-      subject: 'Seu Código de Acesso - ChatGPT',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Código de Verificação</h2>
-          <p>Seu código de verificação é:</p>
-          <div style="background: #f0f0f0; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 3px; margin: 20px 0;">
-            ${code}
+      console.log('📤 Sending email...');
+      const transporter = await getTransporter(db);
+      const smtpStored = ((await db.collection('settings').findOne({ key: 'emailConfig' })) || {}).smtp || {};
+      const smtpConf = Object.assign(
+        { user: 'contactgestorvip@gmail.com' },
+        smtpStored
+      );
+      const emailResult = await transporter.sendMail({
+        from: `"ChatGPT Code System" <${smtpConf.user}>`,
+        to: email,
+        subject: 'Seu Código de Acesso - ChatGPT',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Código de Verificação</h2>
+            <p>Seu código de verificação é:</p>
+            <div style="background: #f0f0f0; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 3px; margin: 20px 0;">
+              ${code}
+            </div>
+            <p>Este código é válido por 10 minutos.</p>
+            <p>Se você não solicitou este código, ignore este email.</p>
           </div>
-          <p>Este código é válido por 10 minutos.</p>
-          <p>Se você não solicitou este código, ignore este email.</p>
-        </div>
-      `,
-      text: `Seu código de verificação é: ${code}. Este código é válido por 10 minutos.`
-    });
+        `,
+        text: `Seu código de verificação é: ${code}. Este código é válido por 10 minutos.`
+      });
 
-    console.log('✅ Email sent successfully:', emailResult.messageId);
+      console.log('✅ Email sent successfully:', emailResult.messageId);
 
-    res.json({ message: 'Verification code sent' });
+      res.json({ message: 'Verification code sent' });
+    } else {
+      const ip = resolveClientIP(req);
+      const referer = resolveReferer(req);
+      const ipInfo =
+        req.body.ipInfo && req.body.ipInfo.ip === ip
+          ? req.body.ipInfo
+          : await getIPInfo(ip);
+      const result = await completeLogin(db, req, email, ip, ipInfo, referer);
+      if (result.error) {
+        return res.status(403).json({ error: result.error });
+      }
+      res.json({ token: 'verified' });
+    }
   } catch (error) {
     console.error('❌ Error sending email:', error);
     res.status(500).json({ error: 'Failed to send verification code' });
@@ -340,132 +467,13 @@ router.post('/api/verify', checkBlockedIP, async (req, res) => {
       return res.status(401).json({ error: messages.invalidCode || 'Invalid code' });
     }
 
-    // Remove used verification code
     console.log('🗑️ Removing used verification code...');
     await db.collection('verification_codes').deleteOne({ _id: verificationRecord._id });
 
-    // Create or update user record
-    console.log('👤 Updating user record...');
-    const user = await db.collection('users').findOne({ email });
-    const sessionLimitSetting =
-      (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
-        limitEnabled: true,
-        durationEnabled: true,
-        maxSessions: 3,
-        sessionDuration: 5
-      };
-
-    const currentMax =
-      user && typeof user.maxSessions === 'number'
-        ? user.maxSessions
-        : sessionLimitSetting.maxSessions;
-
-    if (sessionLimitSetting.limitEnabled !== false && currentMax <= 0) {
-      console.log('❌ Session limit reached for user:', email);
-      await db.collection('access_logs').insertOne({
-        email,
-        action: 'Limite de sessão atingido',
-        timestamp: new Date(),
-        ip,
-        country: ipInfo.country || 'Desconhecido',
-        referer,
-        ipInfo
-      });
-      return res
-        .status(403)
-        .json({
-          error:
-            messages.sessionLimitReached ||
-            'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.'
-        });
+    const result = await completeLogin(db, req, email, ip, ipInfo, referer);
+    if (result.error) {
+      return res.status(403).json({ error: result.error });
     }
-
-    const userUpdate = {
-      $set: { lastLogin: new Date(), verified: true }
-    };
-    if (sessionLimitSetting.limitEnabled !== false) {
-      userUpdate.$inc = { maxSessions: -1 };
-    }
-    const updateQuery = sessionLimitSetting.limitEnabled !== false
-      ? { email, maxSessions: { $gt: 0 } }
-      : { email };
-    const updateResult = await db
-      .collection('users')
-      .updateOne(updateQuery, userUpdate);
-
-    if (sessionLimitSetting.limitEnabled !== false && updateResult.matchedCount === 0) {
-      console.log('❌ Session limit reached for user during update:', email);
-      await db.collection('access_logs').insertOne({
-        email,
-        action: 'Limite de sessão atingido',
-        timestamp: new Date(),
-        ip,
-        country: ipInfo.country || 'Desconhecido',
-        referer,
-        ipInfo
-      });
-      return res.status(403).json({ error: messages.sessionLimitReached || 'Limite de sessões atingido. Por favor, faça logout em outro dispositivo.' });
-    }
-
-    // Log successful verification with IP details
-    console.log('📝 Recording successful verification...');
-    // Reuse ip, ipInfo and referer collected above
-    await db.collection('access_logs').insertOne({
-      email,
-      action: 'Login sucesso',
-      timestamp: new Date(),
-      ip,
-      country: ipInfo.country || 'Desconhecido',
-      referer,
-      ipInfo
-    });
-
-
-
-    // Set user session
-    console.log('🔐 Setting user session...');
-    const sessionId = require('crypto').randomBytes(32).toString('hex');
-    req.session.user = {
-      email,
-      sessionId,
-      ip,
-      ipInfo
-    };
-
-    // Store session in database
-    const sessionDurationMinutes =
-      user && typeof user.sessionDuration === 'number'
-        ? user.sessionDuration
-        : sessionLimitSetting.sessionDuration;
-    const now = new Date();
-    const sessionData = {
-      email,
-      sessionId,
-      createdAt: now,
-      lastActivity: now,
-      ip,
-      userAgent: req.headers['user-agent']
-    };
-    if (sessionLimitSetting.durationEnabled !== false) {
-      sessionData.sessionDuration = sessionDurationMinutes;
-      sessionData.expiresAt = new Date(
-        now.getTime() + sessionDurationMinutes * 60000
-      );
-    }
-    const reloadSetting =
-      (await db.collection('settings').findOne({ key: 'autoReload' })) || {
-        enabled: true,
-        limit: 3
-      };
-    if (reloadSetting.enabled !== false) {
-      sessionData.reloadRemaining = reloadSetting.limit || 3;
-    } else {
-      sessionData.reloadRemaining = 0;
-    }
-    req.session.user.reloadRemaining = sessionData.reloadRemaining;
-
-    await db.collection('active_sessions').insertOne(sessionData);
-
     console.log('✅ Verification successful');
     res.json({ token: 'verified' });
   } catch (error) {
@@ -511,15 +519,25 @@ router.get('/codes', async (req, res) => {
       { limit: 5 };
     const limit = limitSetting.limit || 5;
 
-    // Fetch latest codes from IMAP and store them in DB
-    await fetchImapCodes(db, email, limit);
+    // Fetch latest codes from IMAP and store them in DB, retrying once on failure
+    await fetchImapCodesRetry(db, email, limit, 2);
 
-    // Retrieve the most recent codes limited by admin setting
+    // Retrieve the most recent code for each email, limited by admin setting
     const codes = await db
       .collection('codes')
-      .find()
-      .sort({ fetchedAt: -1 })
-      .limit(limit)
+      .aggregate([
+        { $sort: { fetchedAt: -1 } },
+        {
+          $group: {
+            _id: '$email',
+            email: { $first: '$email' },
+            code: { $first: '$code' },
+            fetchedAt: { $first: '$fetchedAt' }
+          }
+        },
+        { $sort: { fetchedAt: -1 } },
+        { $limit: limit }
+      ])
       .toArray();
 
     if (codes.length > 0) {

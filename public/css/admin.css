@@ -4,6 +4,7 @@
   --sidebar-bg: #2c3e50;
   --sidebar-color: rgba(255,255,255,0.8);
   --sidebar-active: #3498db;
+  --radius: 1rem;
 }
 body.dark {
   --bg: #1e1e1e;
@@ -21,10 +22,15 @@ body {
   width: 240px;
   min-height: 100vh;
 }
+@media (max-width: 767.98px) {
+  .sidebar {
+    width: 100%;
+  }
+}
 .nav-link {
   color: var(--sidebar-color);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin: 0.2rem 0;
 }
 .nav-link:hover {
@@ -37,7 +43,7 @@ body {
 }
 .table-container, .settings-card, .stats-card {
   background: var(--bg);
-  border-radius: 15px;
+  border-radius: calc(var(--radius) * 1.25);
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   padding: 1.5rem;
 }

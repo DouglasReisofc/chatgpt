@@ -11,6 +11,9 @@
         --text-color: <%= colors.textColor %>;
     }
 </style>
+<script>
+    const CODE_REQUIRED = <%- verificationRequired ? 'true' : 'false' %>;
+</script>
 <div class="container">
     <div class="row justify-content-center mt-5">
         <div class="col-md-6 col-lg-4">
@@ -30,12 +33,12 @@
                     <div id="loginForm">
                         <div class="mb-3">
                             <label for="email" class="form-label">
-                                <i class="fas fa-envelope me-2"></i>Email
+                                <i class="fas fa-envelope me-2"></i><%= typeof messages !== 'undefined' && messages.emailLabel ? messages.emailLabel : 'Email' %>
                             </label>
                             <input type="email" class="form-control" id="email" required>
                         </div>
-                        <button type="button" class="btn btn-primary w-100" onclick="requestCode()">
-                            <i class="fas fa-paper-plane me-2"></i>Solicitar Código
+                        <button type="button" id="loginButton" class="btn btn-primary w-100" onclick="requestCode()">
+                            <i class="fas fa-paper-plane me-2"></i><span id="loginBtnLabel">Solicitar Código</span>
                         </button>
                     </div>
 
@@ -101,7 +104,13 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', captureIPInfo);
+    document.addEventListener('DOMContentLoaded', function() {
+        captureIPInfo();
+        if(!CODE_REQUIRED) {
+            document.getElementById('verificationForm').style.display = 'none';
+            document.getElementById('loginBtnLabel').textContent = 'Entrar';
+        }
+    });
 
     async function requestCode() {
         const email = document.getElementById('email').value;
@@ -126,11 +135,15 @@
             });
 
             const data = await response.json();
-            
+
             if (response.ok) {
                 currentEmail = email;
-                document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('verificationForm').style.display = 'block';
+                if (CODE_REQUIRED) {
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.getElementById('verificationForm').style.display = 'block';
+                } else {
+                    window.location.href = '/codes';
+                }
             } else {
                 showError(data.error || 'Erro ao enviar código.');
             }

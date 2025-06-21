@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const axios = require('axios');
 const path = require('path');
 const multer = require('multer');
+const { resetAllSessions, startSessionResetCron } = require('../utils/sessionUtils');
 
 const uploadDir = path.join(__dirname, '..', 'public', 'images');
 const storage = multer.diskStorage({
@@ -175,12 +176,16 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             .limit(10)
             .toArray();
 
-        const topFetchers = await db.collection('access_logs')
+
+        let topLimit = parseInt(req.query.topLimit, 10);
+        if (isNaN(topLimit) || topLimit <= 0) topLimit = 5;
+
+        const topAccesses = await db.collection('access_logs')
             .aggregate([
-                { $match: { action: 'Códigos recarregados' } },
+                { $match: { action: { $in: ['Login sucesso', 'verification_success'] } } },
                 { $group: { _id: '$email', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
-                { $limit: 5 }
+                { $limit: topLimit }
             ])
             .toArray();
 
@@ -189,7 +194,8 @@ router.get('/dashboard', requireAdmin, adminLayout, async (req, res) => {
             stats,
             recentUsers,
             recentLogs,
-            topFetchers,
+            topAccesses,
+            topLimit,
             page: 'dashboard'
         });
     } catch (error) {
@@ -345,6 +351,12 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
         const reloadSetting =
             (await db.collection('settings').findOne({ key: 'autoReload' })) ||
             { enabled: true, limit: 3 };
+        const verificationSetting =
+            (await db.collection('settings').findOne({ key: 'emailVerification' })) ||
+            { enabled: true };
+        const resetCronSetting =
+            (await db.collection('settings').findOne({ key: 'sessionResetCron' })) ||
+            { enabled: false, hours: 24 };
         res.render('admin/settings', {
             title: 'Configurações do Sistema',
             codeLimit: codeLimitSetting.limit || 5,
@@ -353,6 +365,13 @@ router.get('/settings', requireAdmin, adminLayout, async (req, res) => {
             reload: {
                 enabled: reloadSetting.enabled !== false,
                 limit: reloadSetting.limit || 3
+            },
+            verification: {
+                enabled: verificationSetting.enabled !== false
+            },
+            resetCron: {
+                enabled: resetCronSetting.enabled !== false,
+                hours: resetCronSetting.hours || 24
             },
             page: 'settings'
         });
@@ -395,7 +414,10 @@ router.get('/messages', requireAdmin, adminLayout, async (req, res) => {
                 sessionExpired: 'Sessão expirada. Faça login novamente.',
                 invalidCode: 'Código inválido.',
                 ipBlocked:
-                    'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde'
+                    'No momento nosso sistema enfrenta uma manutenção por favor tente novamente mais tarde',
+                emailNotAuthorized:
+                    'Email não autorizado. Contate o administrador.',
+                emailLabel: 'Email'
             };
         res.render('admin/messages', {
             title: 'Mensagens do Sistema',
@@ -410,7 +432,7 @@ router.get('/messages', requireAdmin, adminLayout, async (req, res) => {
 
 // Update system messages
 router.post('/messages', requireAdmin, async (req, res) => {
-    const { sessionLimitReached, sessionExpired, invalidCode, ipBlocked } = req.body;
+    const { sessionLimitReached, sessionExpired, invalidCode, ipBlocked, emailNotAuthorized, emailLabel } = req.body;
     const db = req.db;
 
     try {
@@ -421,7 +443,9 @@ router.post('/messages', requireAdmin, async (req, res) => {
                     sessionLimitReached,
                     sessionExpired,
                     invalidCode,
-                    ipBlocked
+                    ipBlocked,
+                    emailNotAuthorized,
+                    emailLabel
                 }
             },
             { upsert: true }
@@ -595,27 +619,41 @@ router.post('/settings/session-limit', requireAdmin, async (req, res) => {
 
 // Block IP
 router.post('/settings/block-ip', requireAdmin, async (req, res) => {
-    const { ip } = req.body;
+    let { ip, ips } = req.body;
     const db = req.db;
 
-    if (!ip) {
+    if (!ips) ips = ip;
+
+    if (typeof ips === 'string') {
+        ips = ips.split(/[\s,;\n]+/);
+    }
+
+    if (!Array.isArray(ips) || ips.length === 0) {
         return res.status(400).json({ error: 'IP address is required' });
     }
 
+    const cleaned = ips.map(i => String(i).trim()).filter(Boolean);
+    if (cleaned.length === 0) {
+        return res.status(400).json({ error: 'No valid IPs provided' });
+    }
+
     try {
-        // Check if IP is already blocked
-        const existingBlock = await db.collection('blocked_ips').findOne({ address: ip });
-        if (existingBlock) {
-            return res.status(400).json({ error: 'IP already blocked' });
+        const existing = await db
+            .collection('blocked_ips')
+            .find({ address: { $in: cleaned } })
+            .toArray();
+        const existingSet = new Set(existing.map(b => b.address));
+        const toInsert = cleaned
+            .filter(i => !existingSet.has(i))
+            .map(i => ({
+                address: i,
+                blockedAt: new Date(),
+                blockedBy: req.session.admin.username
+            }));
+        if (toInsert.length > 0) {
+            await db.collection('blocked_ips').insertMany(toInsert);
         }
-
-        await db.collection('blocked_ips').insertOne({
-            address: ip,
-            blockedAt: new Date(),
-            blockedBy: req.session.admin.username
-        });
-
-        res.json({ success: true });
+        res.json({ success: true, blocked: toInsert.length });
     } catch (error) {
         console.error('Error blocking IP:', error);
         res.status(500).json({ error: 'Failed to block IP' });
@@ -624,16 +662,26 @@ router.post('/settings/block-ip', requireAdmin, async (req, res) => {
 
 // Unblock IP
 router.post('/settings/unblock-ip', requireAdmin, async (req, res) => {
-    const { ip } = req.body;
+    let { ip, ips } = req.body;
     const db = req.db;
 
-    if (!ip) {
+    if (!ips) ips = ip;
+    if (typeof ips === 'string') {
+        ips = ips.split(/[\s,;\n]+/);
+    }
+
+    if (!Array.isArray(ips) || ips.length === 0) {
         return res.status(400).json({ error: 'IP address is required' });
     }
 
+    const cleaned = ips.map(i => String(i).trim()).filter(Boolean);
+    if (cleaned.length === 0) {
+        return res.status(400).json({ error: 'No valid IPs provided' });
+    }
+
     try {
-        await db.collection('blocked_ips').deleteOne({ address: ip });
-        res.json({ success: true });
+        const result = await db.collection('blocked_ips').deleteMany({ address: { $in: cleaned } });
+        res.json({ success: true, removed: result.deletedCount });
     } catch (error) {
         console.error('Error unblocking IP:', error);
         res.status(500).json({ error: 'Failed to unblock IP' });
@@ -659,12 +707,36 @@ router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
     const db = req.db;
 
     try {
-        await db.collection('active_sessions').deleteMany({});
+        await resetAllSessions(db);
         console.log('All sessions reset by admin:', req.session.admin.username);
         res.json({ success: true });
     } catch (error) {
         console.error('Error resetting sessions:', error);
         res.status(500).json({ error: 'Failed to reset sessions' });
+    }
+});
+
+// Update session reset cron setting
+router.post('/settings/reset-cron', requireAdmin, async (req, res) => {
+    const { enabled, hours } = req.body;
+    const db = req.db;
+
+    const interval = parseInt(hours);
+    if (enabled && (!Number.isInteger(interval) || interval <= 0)) {
+        return res.status(400).json({ error: 'Invalid hours' });
+    }
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'sessionResetCron' },
+            { $set: { enabled: !!enabled, hours: interval || 24 } },
+            { upsert: true }
+        );
+        await startSessionResetCron(db);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving reset cron setting:', error);
+        res.status(500).json({ error: 'Failed to save setting' });
     }
 });
 
@@ -710,6 +782,24 @@ router.post('/settings/auto-reload', requireAdmin, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Error saving auto reload setting:', error);
+        res.status(500).json({ error: 'Failed to save setting' });
+    }
+});
+
+// Update email verification setting
+router.post('/settings/email-verification', requireAdmin, async (req, res) => {
+    const { enabled } = req.body;
+    const db = req.db;
+
+    try {
+        await db.collection('settings').updateOne(
+            { key: 'emailVerification' },
+            { $set: { enabled: !!enabled } },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving email verification setting:', error);
         res.status(500).json({ error: 'Failed to save setting' });
     }
 });
@@ -931,6 +1021,37 @@ router.post('/users', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error adding user:', error);
         res.status(500).json({ error: 'Failed to add user' });
+    }
+});
+
+// Delete users in bulk
+router.post('/users/bulk-delete', requireAdmin, async (req, res) => {
+    let { emails } = req.body;
+    const db = req.db;
+
+    if (typeof emails === 'string') {
+        emails = emails.split(/[\s,;\n]+/);
+    }
+
+    if (!Array.isArray(emails) || emails.length === 0) {
+        return res.status(400).json({ error: 'No emails provided' });
+    }
+
+    const cleaned = emails
+        .map(e => String(e).trim().toLowerCase())
+        .filter(e => e);
+
+    if (cleaned.length === 0) {
+        return res.status(400).json({ error: 'No valid emails provided' });
+    }
+
+    try {
+        const result = await db.collection('users').deleteMany({ email: { $in: cleaned } });
+        await db.collection('verification_codes').deleteMany({ email: { $in: cleaned } });
+        res.json({ success: true, removed: result.deletedCount });
+    } catch (error) {
+        console.error('Error deleting users:', error);
+        res.status(500).json({ error: 'Failed to delete users' });
     }
 });
 

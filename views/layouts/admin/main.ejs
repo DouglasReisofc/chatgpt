@@ -11,7 +11,13 @@
 <body>
     <%- include('./header') %>
 
-    <div class="d-flex">
+    <!--
+      Use Bootstrap utilities so the sidebar stacks on small screens and
+      sits beside the main content on larger widths. The "min-vh-100" class
+      ensures the sidebar always spans the full viewport height without
+      requiring a custom wrapper style.
+    -->
+    <div class="d-flex flex-column flex-md-row min-vh-100">
         <%- include('./sidenav') %>
         <main class="flex-grow-1 p-3">
             <%- body %>

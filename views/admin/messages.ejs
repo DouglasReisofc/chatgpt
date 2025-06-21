@@ -15,6 +15,14 @@
                 <textarea class="form-control" id="invalidCode" rows="2"><%= messages.invalidCode %></textarea>
             </div>
             <div class="mb-3">
+                <label class="form-label" for="emailLabel">Texto do Campo Email</label>
+                <input type="text" class="form-control" id="emailLabel" value="<%= messages.emailLabel %>">
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="emailNotAuthorized">Email Não Autorizado</label>
+                <textarea class="form-control" id="emailNotAuthorized" rows="2"><%= messages.emailNotAuthorized %></textarea>
+            </div>
+            <div class="mb-3">
                 <label class="form-label" for="ipBlocked">IP Bloqueado</label>
                 <textarea class="form-control" id="ipBlocked" rows="2"><%= messages.ipBlocked %></textarea>
             </div>
@@ -30,6 +38,8 @@
             sessionLimitReached: document.getElementById('sessionLimitReached').value,
             sessionExpired: document.getElementById('sessionExpired').value,
             invalidCode: document.getElementById('invalidCode').value,
+            emailLabel: document.getElementById('emailLabel').value,
+            emailNotAuthorized: document.getElementById('emailNotAuthorized').value,
             ipBlocked: document.getElementById('ipBlocked').value
         };
         try {
