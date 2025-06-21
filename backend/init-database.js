@@ -2,7 +2,7 @@
 const { MongoClient } = require('mongodb');
 
 async function initializeDatabase() {
-  const client = new MongoClient('mongodb://localhost:27017');
+  const client = new MongoClient('mongodb://127.0.0.1:27017');
   
   try {
     await client.connect();

@@ -7,7 +7,7 @@ const expressLayouts = require('express-ejs-layouts');
 
 const app = express();
 app.set('trust proxy', true);
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 80;
 
 // View engine setup
 app.set('view engine', 'ejs');
@@ -41,7 +41,7 @@ app.use(session({
 
 // MongoDB connection
 let db;
-const mongoUrl = 'mongodb://localhost:27017';
+const mongoUrl = 'mongodb://127.0.0.1:27017';
 const dbName = 'chatgpt_codes';
 
 // Import database initialization
@@ -116,7 +116,7 @@ app.use('/admin', adminRoutes);
 // Initialize MongoDB connection and start server
 connectToMongoDB().then(() => {
   app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+    console.log(`Server running on http://127.0.0.1:${port}`);
   });
 }).catch(error => {
   console.error('Failed to start server:', error);

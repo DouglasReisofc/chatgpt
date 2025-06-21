@@ -5,7 +5,7 @@ const net = require('net');
 
 function isPrivateIP(ip) {
     if (!ip) return true;
-    if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return true;
+    if (ip === '127.0.0.1' || ip === '::1') return true;
     const privateRanges = [/^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./];
     return privateRanges.some(range => range.test(ip));
 }

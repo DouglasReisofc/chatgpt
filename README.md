@@ -47,7 +47,7 @@ npm run dev
 
 ## 🌐 Acesso
 
-Após iniciar, acesse: **http://localhost:8000**
+Após iniciar, acesse: **http://127.0.0.1**
 
 ## 📁 Estrutura do Projeto
 
@@ -89,7 +89,7 @@ chatgpt-codes-system/
 2. Verifique os logs em `mongodb-logs/mongod.log`
 3. Se necessário, reinicie o computador e tente novamente
 
-### Porta 8000 em uso
+### Porta 80 em uso
 - Altere a porta no arquivo `index.js` ou defina a variável de ambiente `PORT`
 
 ## 📋 Funcionalidades
