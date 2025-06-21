@@ -170,7 +170,8 @@ async function fetchImapCodes(db, email, limit = 5) {
                 const rec = {
                   code: m[1],
                   email: emailAddr || 'unknown',
-                  fetchedAt: new Date()
+                  fetchedAt: new Date(),
+                  receivedAt: parsed.date || new Date()
                 };
                 await db.collection('codes').insertOne(rec).catch(() => { });
                 records.push(rec);
