@@ -667,6 +667,23 @@ router.post('/settings/reset-sessions', requireAdmin, async (req, res) => {
 
     try {
         await db.collection('active_sessions').deleteMany({});
+        await db.collection('verification_codes').deleteMany({});
+
+        const globalSettings =
+            (await db.collection('settings').findOne({ key: 'sessionLimit' })) || {
+                limitEnabled: true,
+                durationEnabled: true,
+                maxSessions: 3,
+                sessionDuration: 5
+            };
+
+        await db.collection('users').updateMany({}, {
+            $set: {
+                maxSessions: globalSettings.maxSessions,
+                sessionDuration: globalSettings.sessionDuration
+            }
+        });
+
         console.log('All sessions reset by admin:', req.session.admin.username);
         res.json({ success: true });
     } catch (error) {
