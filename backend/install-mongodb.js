@@ -87,6 +87,7 @@ async function initializeDatabase() {
     await db.createCollection('users');
     await db.createCollection('verification_codes');
     await db.createCollection('access_logs');
+    await db.createCollection('codes');
     
     console.log('✅ Database and collections created');
     
@@ -94,6 +95,9 @@ async function initializeDatabase() {
     await db.collection('verification_codes').createIndex({ email: 1 });
     await db.collection('verification_codes').createIndex({ createdAt: 1 }, { expireAfterSeconds: 600 }); // 10 minutes
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
+    await db
+      .collection('codes')
+      .createIndex({ email: 1, code: 1 }, { unique: true });
     
     console.log('✅ Database indexes created');
     

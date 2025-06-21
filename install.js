@@ -118,6 +118,7 @@ async function initializeDatabase() {
         await db.createCollection('users');
         await db.createCollection('verification_codes');
         await db.createCollection('access_logs');
+        await db.createCollection('codes');
         
         // Create indexes
         await db.collection('verification_codes').createIndex({ email: 1 });
@@ -127,6 +128,10 @@ async function initializeDatabase() {
         );
         await db.collection('users').createIndex(
             { email: 1 },
+            { unique: true }
+        );
+        await db.collection('codes').createIndex(
+            { email: 1, code: 1 },
             { unique: true }
         );
         
